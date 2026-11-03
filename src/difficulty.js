@@ -11,7 +11,10 @@ export const LEVELS = [
   { id: 'super', label: 'Super' },
 ];
 
-// wrongWay: chance of diving the wrong way when beaten by a more central shot.
+// wrongWay:  chance of diving the wrong way when beaten by a more central shot.
+// guessWrong: chance of guessing the wrong way on any shot, before reading it at all.
+// fumbleEaseFloor: fumble odds scale with how easy the shot was (keeper.fumbleChance
+//   for the easiest); a floor of 1 makes every easy shot fumble at the full chance.
 const MODS = {
   dumbass: (k) => ({
     ...k,
@@ -21,20 +24,24 @@ const MODS = {
     skillRandomness: Math.min(1, k.skillRandomness + 0.45), // often beaten...
     perfectZone: k.perfectZone * 1.8,
     catchSpeed: k.catchSpeed * 0.6, // ...parries what he should catch...
-    fumbleChance: Math.min(0.5, k.fumbleChance * 2.5), // ...and lets in the easy ones
+    fumbleChance: 0.5, // ...and lets in half of the easy ones
+    fumbleEaseFloor: 1,
     wrongWay: 0.5,
+    guessWrong: 0.25, // and sometimes just guesses, wrongly
   }),
-  normal: (k) => ({ ...k, wrongWay: 0.2 }),
+  normal: (k) => ({ ...k, wrongWay: 0.2, guessWrong: 0, fumbleEaseFloor: 0 }),
   super: (k) => ({
     ...k,
     reactionDelay: k.reactionDelay * 0.6,
     diveSpeed: k.diveSpeed * 1.25,
     reach: k.reach * 1.15,
     skillRandomness: k.skillRandomness * 0.35,
-    perfectZone: k.perfectZone * 0.5, // only the really perfect ones beat him
+    // perfectZone unchanged: perfect shots still beat him
     catchSpeed: k.catchSpeed * 1.3,
     fumbleChance: k.fumbleChance * 0.25,
+    fumbleEaseFloor: 0,
     wrongWay: 0.05,
+    guessWrong: 0,
   }),
 };
 

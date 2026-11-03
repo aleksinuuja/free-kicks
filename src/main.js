@@ -4,7 +4,16 @@
 import './style.css';
 import * as THREE from 'three';
 import { config, onConfigChange } from './config.js';
-import { createWorld, aimSun, createBallMesh, createAimArrow, createBallRing, createTrail } from './world.js';
+import {
+  createWorld,
+  aimSun,
+  createBallMesh,
+  createAimArrow,
+  createBallRing,
+  createTrail,
+  BALL_VISUAL_RADIUS,
+  BALL_VISUAL_LIFT,
+} from './world.js';
 import { Wall, Keeper } from './actors.js';
 import { BallBody, stepBall, predictCrossing, GOAL_COLLIDERS, BALL_RADIUS, GOAL } from './physics.js';
 import { AimInput, OrbitInput, StrikePicker } from './input.js';
@@ -226,6 +235,14 @@ function keeperReact() {
     return;
   }
 
+  // A bad keeper (Dumbass) sometimes just guesses, the wrong way.
+  if (Math.random() < k.guessWrong) {
+    game.keeperBeaten = true;
+    const side = Math.sign(target.x - home.x) || 1;
+    keeper.dive({ x: home.x - side * rand(1.5, 2.5), y: rand(0.4, 1.6) }, k, pred.t);
+    return;
+  }
+
   // Otherwise easy shots (difficulty < 0.15) are always read; beyond that the odds grow.
   const difficulty = placement * (0.5 + 0.5 * pace);
   const beatChance = clamp((difficulty - 0.15) / 0.7, 0, 1) * clamp(0.3 + k.skillRandomness, 0, 1);
@@ -246,7 +263,7 @@ function keeperReact() {
 function onKeeperContact(speedBefore) {
   game.keeperTouched = true;
   const k = game.keeper;
-  if (game.easyShot && Math.random() < k.fumbleChance * game.shotEase) {
+  if (game.easyShot && Math.random() < k.fumbleChance * Math.max(game.shotEase, k.fumbleEaseFloor)) {
     // Right place, right time... and it squirms through into the net.
     game.fumbled = true;
     ball.pos.y = Math.min(ball.pos.y, GOAL.height - 0.3);
@@ -472,13 +489,14 @@ const _axis = new THREE.Vector3();
 
 function syncBallMesh(dt) {
   ballMesh.position.copy(ball.pos);
+  ballMesh.position.y += BALL_VISUAL_LIFT;
   if (dt <= 0) return;
   if (ball.onGround) {
     // Roll without slipping.
     const speed = Math.hypot(ball.vel.x, ball.vel.z);
     if (speed > 0.01) {
       _axis.set(ball.vel.z, 0, -ball.vel.x).divideScalar(speed);
-      ballMesh.rotateOnWorldAxis(_axis, (speed / BALL_RADIUS) * dt);
+      ballMesh.rotateOnWorldAxis(_axis, (speed / BALL_VISUAL_RADIUS) * dt);
     }
   } else {
     const w = ball.spin.length();
