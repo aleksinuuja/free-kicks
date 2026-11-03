@@ -161,6 +161,7 @@ function kick(strike) {
   game.fumbled = false;
   game.keeperBeaten = false;
   game.easyShot = true;
+  game.shotEase = 0;
   game.phase = 'flight';
   game.stats.shots++;
   hud.setStats(game.stats);
@@ -184,8 +185,10 @@ function keeperReact() {
   const placement = clamp(1 - postGap / GOAL.halfWidth, 0, 1); // 0 = centre, 1 = at the post
   const pace = clamp((pred.speed - 12) / 16, 0, 1);
   const onTarget = postGap > 0 && pred.y < GOAL.height;
-  // Fumbles are only for shots he should have had: slow or central.
+  // Fumbles are only for shots he should have had: slow or central. The easier the
+  // shot, the likelier (up to keeper.fumbleChance for a slow one dead centre).
   game.easyShot = pace < 0.35 || placement < 0.4;
+  game.shotEase = (1 - placement) * (1 - pace);
 
   // Near-perfect placement always beats him: he dives short and late and can't touch it.
   if (onTarget && postGap < k.perfectZone) {
@@ -213,7 +216,7 @@ function keeperReact() {
 function onKeeperContact(speedBefore) {
   game.keeperTouched = true;
   const k = config.keeper;
-  if (game.easyShot && Math.random() < k.fumbleChance) {
+  if (game.easyShot && Math.random() < k.fumbleChance * game.shotEase) {
     // Right place, right time... and it squirms through into the net.
     game.fumbled = true;
     ball.pos.y = Math.min(ball.pos.y, GOAL.height - 0.3);

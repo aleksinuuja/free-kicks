@@ -36,7 +36,7 @@ export default {
     skillRandomness: 0.35, // how beatable on hard shots: 0 = only the reach limit beats him, 1 = often misreads
     perfectZone: 0.6, // on-target shots this close (m) to the inside of a post always beat him
     catchSpeed: 18, // shots slower than this (m/s) at contact are caught, faster ones are parried
-    fumbleChance: 0.05, // chance a save of a slow or central shot squirms into the net ("Fumble!")
+    fumbleChance: 0.2, // fumble chance for a slow shot dead centre; less the better the shot ("Fumble!")
   },
   wall: {
     count: 4, // defenders (2–5) at the default spot; "New spot" picks its own

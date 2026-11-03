@@ -39,7 +39,7 @@ const PANEL = {
     skillRandomness: [0, 1, 0.01, 'skill randomness'],
     perfectZone: [0, 1.5, 0.05, 'perfect zone (m)'],
     catchSpeed: [0, 35, 0.5, 'catch below (m/s)'],
-    fumbleChance: [0, 0.5, 0.01, 'fumble chance'],
+    fumbleChance: [0, 0.5, 0.01, 'fumble chance (max)'],
   },
   wall: {
     title: 'Wall',
