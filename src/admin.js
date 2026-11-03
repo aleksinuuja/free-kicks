@@ -17,7 +17,7 @@ const PANEL = {
     maxPower: [10, 45, 0.5, 'max power (m/s)'],
     minPower: [0, 20, 0.5, 'min power (m/s)'],
     powerCurve: [['linear', 'eased'], 'power curve'],
-    liftScale: [0.3, 1, 0.01, 'lift scale'],
+    liftScale: [0.1, 1, 0.01, 'lift scale'],
     maxSpin: [0, 120, 1, 'max spin (rad/s)'],
     spinCurve: [1, 4, 0.05, 'spin curve (exp)'],
     topspin: [0, 1, 0.01, 'top/backspin share'],
