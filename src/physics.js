@@ -6,7 +6,10 @@
 
 import * as THREE from 'three';
 
-export const BALL_RADIUS = 0.11;
+// A touch bigger than a real ball (0.11 m) so it reads well on a phone screen. The
+// radius only affects collisions: drag and Magnus here don't depend on it, so the
+// flight for a given power and spin is the same.
+export const BALL_RADIUS = 0.1375;
 
 export const GOAL = {
   halfWidth: 3.66, // inner half-width (7.32 m goal)

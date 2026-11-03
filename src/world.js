@@ -223,16 +223,10 @@ function buildSurroundings(scene) {
 
 // ── Ball ─────────────────────────────────────────────────────────────────────
 
-// The ball is drawn bigger than its physics body (BALL_RADIUS) so it reads better
-// on a phone screen; physics and collisions are unchanged.
-export const BALL_VISUAL_RADIUS = BALL_RADIUS * 1.25;
-/** Raise the mesh by this much so the bigger ball still sits on the grass. */
-export const BALL_VISUAL_LIFT = BALL_VISUAL_RADIUS - BALL_RADIUS;
-
 export function createBallMesh() {
   // Subdivided icosahedron: the triangles around the 12 original vertices form
   // dark pentagon patches.
-  const geo = new THREE.IcosahedronGeometry(BALL_VISUAL_RADIUS, 2);
+  const geo = new THREE.IcosahedronGeometry(BALL_RADIUS, 2);
   const base = new THREE.IcosahedronGeometry(1, 0).attributes.position;
   const corners = [];
   for (let i = 0; i < base.count; i++) corners.push(new THREE.Vector3().fromBufferAttribute(base, i).normalize());
