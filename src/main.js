@@ -192,16 +192,28 @@ function keeperReact() {
   game.easyShot = pace < 0.35 || placement < 0.4;
   game.shotEase = (1 - placement) * (1 - pace);
 
-  // Near-perfect placement always beats him. Make it dramatic: a full-stretch leap,
-  // further than he normally reaches, with the gloves finishing just short of the ball.
-  // (His colliders are off for this shot, so he can't touch it.)
-  if (onTarget && postGap < k.perfectZone) {
+  // Beaten (see below): he can't touch the ball (colliders off), but make it dramatic:
+  // a full-stretch leap, further than he normally reaches, gloves finishing just short.
+  // Within arm's length a stop-short dive barely moves his body, so close ones get a
+  // late, all-in dive past the ball's line instead: the ball is through before he gets there.
+  const leapShort = (missBy) => {
     game.keeperBeaten = true;
     const dx = target.x - home.x;
     const dy = target.y - home.y;
-    const short = PERFECT_MISS / Math.max(Math.hypot(dx, dy), PERFECT_MISS);
-    const nearMiss = { x: target.x - dx * short, y: target.y - dy * short };
-    keeper.dive(nearMiss, k, pred.t, { reachScale: 1.35, hop: 0.3 });
+    const dist = Math.max(Math.hypot(dx, dy), 0.01);
+    const leap = { reachScale: 1.35, hop: 0.3 };
+    if (dist < 2) {
+      const over = Math.max(dist + 0.6, 2.3) / dist; // hands well past the ball's line, body really travels
+      keeper.dive({ x: home.x + dx * over, y: home.y + dy * over }, k, pred.t + 0.3, leap);
+    } else {
+      const short = missBy / dist;
+      keeper.dive({ x: target.x - dx * short, y: target.y - dy * short }, k, pred.t, leap);
+    }
+  };
+
+  // Near-perfect placement always beats him.
+  if (onTarget && postGap < k.perfectZone) {
+    leapShort(PERFECT_MISS);
     return;
   }
 
@@ -212,12 +224,13 @@ function keeperReact() {
 
   if (!beaten) {
     keeper.dive(target, k, pred.t); // good read: right place, right time (reach still limits)
-    return;
+  } else if (placement < 0.5 && Math.random() < 0.2) {
+    // Fooled on a more central shot: commits the wrong way.
+    game.keeperBeaten = true;
+    keeper.dive({ x: home.x - (target.x - home.x), y: target.y }, k, pred.t);
+  } else {
+    leapShort(rand(0.3, 0.55)); // beaten by a good shot: full stretch, just can't reach
   }
-  // Misread: dives short and late, and now and then the wrong way.
-  const f = Math.random() < 0.3 ? -0.6 : rand(0.35, 0.7);
-  const misread = { x: home.x + (target.x - home.x) * f, y: home.y + (target.y - home.y) * Math.abs(f) };
-  keeper.dive(misread, k, pred.t + rand(0.1, 0.25));
 }
 
 /** First touch on the keeper: fumble, solid catch, or a punch away. */
