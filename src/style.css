@@ -118,10 +118,6 @@ body {
   font-weight: 600;
 }
 
-#hint.flash {
-  animation: flash 0.5s ease-out;
-  color: var(--accent);
-}
 
 #power-label {
   position: fixed;
@@ -254,8 +250,3 @@ body {
   }
 }
 
-@keyframes flash {
-  from {
-    transform: scale(1.12);
-  }
-}

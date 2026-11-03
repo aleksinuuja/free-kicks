@@ -6,7 +6,7 @@ import { config, onConfigChange } from './config.js';
 import { createWorld, aimSun, createBallMesh, createAimArrow, createBallRing, createTrail } from './world.js';
 import { Wall, Keeper } from './actors.js';
 import { BallBody, stepBall, predictCrossing, GOAL_COLLIDERS, BALL_RADIUS, GOAL } from './physics.js';
-import { AimInput, StrikePicker } from './input.js';
+import { AimInput, OrbitInput, StrikePicker } from './input.js';
 import * as hud from './hud.js';
 
 const KEEPER_Z = 0.35; // keeper stands just in front of the goal line
@@ -42,6 +42,12 @@ const game = {
   stats: { shots: 0, goals: 0, streak: 0 },
 };
 
+// Look-around: dragging the field swings the camera around the ball; it eases
+// back to the normal view on release. Purely cosmetic.
+const UP = new THREE.Vector3(0, 1, 0);
+const ORBIT_MAX_YAW = degToRad(80);
+const orbit = { yaw: 0, lift: 0, active: false };
+
 /** Shot direction where 0 = straight at the goal centre (-z), + = towards +x. */
 const yawToGoal = (spot) => Math.atan2(-spot.x, spot.z);
 
@@ -67,13 +73,15 @@ function layoutShot() {
 function updateCamera() {
   const c = config.camera;
   const { x, z } = game.spot;
-  const fwd = new THREE.Vector3(-x, 0, -z).normalize();
+  // Behind the ball looking at goal, swung around the ball by the look-around orbit.
+  const fwd = new THREE.Vector3(-x, 0, -z).normalize().applyAxisAngle(UP, orbit.yaw);
+  const height = c.height + orbit.lift;
   camera.fov = c.fov;
   camera.aspect = window.innerWidth / window.innerHeight;
-  camera.position.set(x - fwd.x * c.distance, c.height, z - fwd.z * c.distance);
+  camera.position.set(x - fwd.x * c.distance, height, z - fwd.z * c.distance);
 
   // Pitch the camera down just enough that the ball sits at BALL_SCREEN_Y.
-  const ballDrop = Math.atan2(c.height - BALL_RADIUS, c.distance);
+  const ballDrop = Math.atan2(height - BALL_RADIUS, c.distance);
   const pitch = ballDrop - Math.atan(BALL_SCREEN_Y * Math.tan(degToRad(c.fov / 2)));
   const target = camera.position.clone().addScaledVector(fwd, 10);
   target.y -= 10 * Math.tan(pitch);
@@ -198,7 +206,9 @@ const aimInput = new AimInput({
     return { x: ((_proj.x + 1) / 2) * window.innerWidth, y: ((1 - _proj.y) / 2) * window.innerHeight };
   },
   onChange(aim) {
-    arrow.show(ball.pos, yawToGoal(game.spot) + aim.yaw, aim.power);
+    // Aim is screen-relative, so include any look-around swing of the camera.
+    game.aim = { yaw: aim.yaw + orbit.yaw, power: aim.power };
+    arrow.show(ball.pos, yawToGoal(game.spot) + game.aim.yaw, aim.power);
     hud.showPower(aim.power, aim.x, aim.y);
     hud.setHint('');
   },
@@ -209,11 +219,24 @@ const aimInput = new AimInput({
       hud.setHint(HINT_AIM);
       return;
     }
-    game.aim = aim;
     enterStrike();
   },
-  onMiss() {
-    hud.flashHint('Start the drag on the ball', HINT_AIM);
+});
+
+// Dragging anywhere else on the field looks around (while aiming or watching the shot).
+new OrbitInput({
+  element: canvas,
+  canStart: (e) =>
+    game.phase === 'flight' || (game.phase === 'aim' && aimInput.pointerId !== e.pointerId),
+  onStart() {
+    orbit.active = true;
+  },
+  onMove(dx, dy) {
+    orbit.yaw = clamp(orbit.yaw + dx * 0.006, -ORBIT_MAX_YAW, ORBIT_MAX_YAW);
+    orbit.lift = clamp(orbit.lift + dy * 0.012, -config.camera.height + 0.6, 6);
+  },
+  onEnd() {
+    orbit.active = false;
   },
 });
 
@@ -300,6 +323,13 @@ function update(dt) {
     game.resultTime += dt;
     if (game.resultTime > RESULT_HOLD) resetShot();
   }
+
+  if (!orbit.active && (orbit.yaw !== 0 || orbit.lift !== 0)) {
+    const k = Math.exp(-3 * dt); // ease back to the normal view
+    orbit.yaw = Math.abs(orbit.yaw) < 1e-4 ? 0 : orbit.yaw * k;
+    orbit.lift = Math.abs(orbit.lift) < 1e-3 ? 0 : orbit.lift * k;
+  }
+  updateCamera();
 
   syncBallMesh(dt);
   ring.update(ball.pos, performance.now() / 1000, game.phase === 'aim' && aimInput.pointerId === null);

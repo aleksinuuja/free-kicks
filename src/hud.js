@@ -26,19 +26,8 @@ export function setInfo(text) {
   el.info.textContent = text;
 }
 
-let hintTimer = 0;
 export function setHint(text) {
-  clearTimeout(hintTimer);
   el.hint.textContent = text;
-  el.hint.classList.remove('flash');
-}
-
-/** Briefly highlights a hint, then restores `restore`. */
-export function flashHint(text, restore) {
-  setHint(text);
-  void el.hint.offsetWidth; // restart animation
-  el.hint.classList.add('flash');
-  hintTimer = setTimeout(() => setHint(restore), 1400);
 }
 
 export function showPower(power, x, y) {

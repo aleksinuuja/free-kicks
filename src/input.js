@@ -14,7 +14,6 @@ export class AimInput {
    * @param {() => {x:number,y:number}} o.getBallScreen
    * @param {(aim) => void} o.onChange   aim = { yaw, power, x, y }
    * @param {(aim|null) => void} o.onRelease
-   * @param {() => void} o.onMiss        pointer went down away from the ball
    */
   constructor(o) {
     Object.assign(this, o);
@@ -29,10 +28,7 @@ export class AimInput {
   #down = (e) => {
     if (!this.enabled || this.pointerId !== null) return;
     const ball = this.getBallScreen();
-    if (Math.hypot(e.clientX - ball.x, e.clientY - ball.y) > GRAB_RADIUS) {
-      this.onMiss?.();
-      return;
-    }
+    if (Math.hypot(e.clientX - ball.x, e.clientY - ball.y) > GRAB_RADIUS) return;
     this.pointerId = e.pointerId;
     this.startX = e.clientX;
     this.startY = e.clientY;
@@ -65,6 +61,35 @@ export class AimInput {
     this.pointerId = null;
     this.onRelease(null);
   };
+}
+
+/** Free drag used for looking around. Reports pixel deltas. */
+export class OrbitInput {
+  constructor({ element, canStart, onStart, onMove, onEnd }) {
+    Object.assign(this, { element, canStart, onStart, onMove, onEnd });
+    this.pointerId = null;
+    element.addEventListener('pointerdown', (e) => {
+      if (this.pointerId !== null || !this.canStart(e)) return;
+      this.pointerId = e.pointerId;
+      this.lastX = e.clientX;
+      this.lastY = e.clientY;
+      element.setPointerCapture(e.pointerId);
+      this.onStart();
+    });
+    element.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== this.pointerId) return;
+      this.onMove(e.clientX - this.lastX, e.clientY - this.lastY);
+      this.lastX = e.clientX;
+      this.lastY = e.clientY;
+    });
+    const end = (e) => {
+      if (e.pointerId !== this.pointerId) return;
+      this.pointerId = null;
+      this.onEnd();
+    };
+    element.addEventListener('pointerup', end);
+    element.addEventListener('pointercancel', end);
+  }
 }
 
 /**

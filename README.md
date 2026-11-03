@@ -10,10 +10,12 @@ npm run build      # static files in dist/
 
 ## How to play
 
-1. **Drag from the ball**: direction = aim, length = power (arrow + % label).
-2. **Tap the big ball**: low = more lift, left side = bends right, right side = bends left.
-   Tap outside the ball to re-aim.
-3. Tap anywhere (or wait 1.5 s) to retry. **Spot** button toggles same / random position.
+1. **Pull back from the ball** (slingshot): the shot goes the opposite way, pull length = power.
+2. **Tap the big ball**: centre or above = flat, lower = more lift (steeply near the edge);
+   left side = bends right, right side = bends left. Tap outside the ball to re-aim.
+3. Tap anywhere (or wait 1.5 s) to retry the same spot. **New spot** picks a random position.
+
+Dragging on the field away from the ball swings the camera around for a look; it eases back.
 
 ## Tuning
 
