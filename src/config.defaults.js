@@ -55,4 +55,14 @@ export default {
     maxDragLength: 130, // px of pull-back for 100 % power
     tapOverlaySize: 240, // px diameter of the strike-point ball
   },
+  replay: {
+    goalPause: 1.2, // s the "GOAL" banner shows before the replay starts
+    slowmo: 0.25, // replay speed near the goal (1 = real time)
+    slowmoWindow: 0.35, // s of shot time before the ball crosses the line where slow motion kicks in
+    afterGoal: 0.7, // s of shot time shown after the ball crosses the line
+    highCam: true, // high behind the kicker
+    sideCam: true, // broadcast camera in the side stand
+    ballCam: true, // chasing the ball
+    netCam: true, // low behind the net
+  },
 };

@@ -1,4 +1,5 @@
 // Game loop and shot flow:  aim → strike → flight → result → (reset) aim
+//                                              └ goal → replay loop → (button) aim
 
 import './style.css';
 import * as THREE from 'three';
@@ -8,6 +9,7 @@ import { Wall, Keeper } from './actors.js';
 import { BallBody, stepBall, predictCrossing, GOAL_COLLIDERS, BALL_RADIUS, GOAL } from './physics.js';
 import { AimInput, OrbitInput, StrikePicker } from './input.js';
 import * as hud from './hud.js';
+import { Recorder, ReplayDirector } from './replay.js';
 
 const KEEPER_Z = 0.35; // keeper stands just in front of the goal line
 const RESULT_HOLD = 1.5; // s before auto-reset
@@ -33,9 +35,12 @@ scene.add(ballMesh, arrow.group, ring.mesh, trail.line);
 
 const wall = new Wall(scene);
 const keeper = new Keeper(scene);
+const recorder = new Recorder(); // every shot is recorded; goals get replayed
+const director = new ReplayDirector(camera, recorder, config.replay);
 
 const game = {
-  phase: 'aim', // 'aim' | 'strike' | 'flight' | 'result'
+  phase: 'aim', // 'aim' | 'strike' | 'flight' | 'result' | 'replay'
+  result: null, // 'GOAL' | 'SAVED' | 'BLOCKED' | 'MISS'
   spot: { ...DEFAULT_SPOT },
   wallCount: null, // set by "New spot"; null = config.wall.count
   aim: null, // { yaw, power } relative to the line ball → goal centre
@@ -169,6 +174,8 @@ function kick(strike) {
   hud.setStats(game.stats);
   arrow.hide();
   trail.reset();
+  recorder.start();
+  recorder.capture(0, ballMesh, keeper, wall);
 }
 
 function keeperReact() {
@@ -246,6 +253,7 @@ function onKeeperContact(speedBefore) {
     callout.active = true;
     callout.time = 0;
     hud.showCallout('Fumble!');
+    recorder.mark('fumble');
     return;
   }
 
@@ -283,14 +291,64 @@ function checkResult() {
 
 function finish(kind) {
   game.phase = 'result';
+  game.result = kind;
   game.resultTime = 0;
   const st = game.stats;
   if (kind === 'GOAL') {
     st.goals++;
     st.streak++;
-  } else st.streak = 0;
+    recorder.mark('cross');
+    hud.setCelebrating(true); // no way out but the replay buttons
+    hud.showResult(kind, '');
+  } else {
+    st.streak = 0;
+    hud.showResult(kind);
+  }
   hud.setStats(st);
-  hud.showResult(kind);
+}
+
+// ── Goal replay ──────────────────────────────────────────────────────────────
+
+let lastTrail = null;
+
+function startReplay() {
+  game.phase = 'replay';
+  recorder.stop();
+  hud.hideResult();
+  hud.hideCallout();
+  callout.active = false;
+  hud.showReplay();
+  director.start(game.spot);
+}
+
+function updateReplay(dt) {
+  const { tau, fade, cut } = director.update(dt);
+  recorder.restore(tau, ballMesh, keeper, wall, config.wall);
+  hud.setFade(fade);
+
+  // Trail grows with the replayed ball.
+  if (cut) {
+    trail.reset();
+    lastTrail = null;
+  }
+  if (tau > 0 && (!lastTrail || lastTrail.distanceToSquared(ballMesh.position) > 0.0025)) {
+    trail.push(ballMesh.position);
+    lastTrail = (lastTrail ?? new THREE.Vector3()).copy(ballMesh.position);
+  }
+
+  // Replayed fumbles get their label again.
+  const f = recorder.events.fumble;
+  if (f !== undefined && tau >= f && tau < f + 1.2) {
+    hud.showCallout('Fumble!');
+    _proj.copy(keeper.torso.b).project(camera);
+    hud.moveCallout(((_proj.x + 1) / 2) * window.innerWidth, ((1 - _proj.y) / 2) * window.innerHeight);
+  } else hud.hideCallout();
+}
+
+function exitReplay() {
+  hud.hideReplay();
+  hud.setCelebrating(false);
+  trail.reset();
 }
 
 // ── Input ────────────────────────────────────────────────────────────────────
@@ -340,21 +398,39 @@ new OrbitInput({
 
 const strikePicker = new StrikePicker(document.getElementById('strike-overlay'), config.input);
 
-// Tap anywhere to retry once the result is up.
+// Tap anywhere to retry once the result is up (goals go to the replay instead).
 window.addEventListener('pointerdown', () => {
-  if (game.phase === 'result' && game.resultTime > 0.2) resetShot();
+  if (game.phase === 'result' && game.result !== 'GOAL' && game.resultTime > 0.2) resetShot();
 });
 
-// "New spot": random free-kick position. Ignored while a shot is in progress.
-hud.newSpotButton.addEventListener('pointerdown', (e) => e.stopPropagation());
-hud.newSpotButton.addEventListener('click', () => {
-  const idle = game.phase === 'aim' && aimInput.pointerId === null;
-  if (!idle && game.phase !== 'result') return;
+/** Random free-kick position with its own wall size. */
+function newSpot() {
   game.spot = randomSpot();
   game.wallCount = 2 + Math.floor(Math.random() * 4); // 2–5 defenders
   trail.reset();
   resetShot();
+}
+
+// "New spot" (HUD): ignored while a shot is in progress or a goal is being celebrated.
+hud.newSpotButton.addEventListener('pointerdown', (e) => e.stopPropagation());
+hud.newSpotButton.addEventListener('click', () => {
+  const idle = game.phase === 'aim' && aimInput.pointerId === null;
+  const missed = game.phase === 'result' && game.result !== 'GOAL';
+  if (idle || missed) newSpot();
 });
+
+// Replay buttons: the only way out of a goal replay.
+for (const [btn, action] of [
+  [hud.againButton, resetShot],
+  [hud.replayNewButton, newSpot],
+]) {
+  btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+  btn.addEventListener('click', () => {
+    if (game.phase !== 'replay') return;
+    exitReplay();
+    action();
+  });
+}
 
 // Block page scroll / pinch-zoom / double-tap zoom (lil-gui keeps its own scrolling).
 document.addEventListener(
@@ -400,6 +476,12 @@ function syncBallMesh(dt) {
 }
 
 function update(dt) {
+  if (game.phase === 'replay') {
+    updateReplay(dt);
+    ring.update(ball.pos, performance.now() / 1000, false);
+    return;
+  }
+
   const flying = game.phase === 'flight' || game.phase === 'result';
 
   if (flying) {
@@ -431,7 +513,9 @@ function update(dt) {
 
   if (game.phase === 'result') {
     game.resultTime += dt;
-    if (game.resultTime > RESULT_HOLD) resetShot();
+    if (game.result === 'GOAL') {
+      if (game.resultTime > config.replay.goalPause) startReplay();
+    } else if (game.resultTime > RESULT_HOLD) resetShot();
   }
 
   if (!orbit.active && (orbit.yaw !== 0 || orbit.lift !== 0)) {
@@ -453,6 +537,7 @@ function update(dt) {
   }
 
   syncBallMesh(dt);
+  if (flying) recorder.capture(dt, ballMesh, keeper, wall);
   ring.update(ball.pos, performance.now() / 1000, game.phase === 'aim' && aimInput.pointerId === null);
 }
 
@@ -486,4 +571,4 @@ if (new URLSearchParams(window.location.search).has('admin')) {
 }
 
 // Dev-only handle for poking at the game from the console or test scripts (stripped from builds).
-if (import.meta.env.DEV) window.__fk = { game, ball, keeper, config, onKeeperContact };
+if (import.meta.env.DEV) window.__fk = { game, ball, keeper, config, onKeeperContact, recorder, director };

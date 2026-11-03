@@ -49,6 +49,7 @@ body {
   gap: 8px;
   padding: calc(env(safe-area-inset-top) + 10px) 12px 0;
   pointer-events: none;
+  z-index: 2; /* stats stay visible over the replay letterbox */
 }
 
 .stats {
@@ -264,3 +265,113 @@ body {
   }
 }
 
+
+/* ── Goal replay ─────────────────────────────────────────────────────────── */
+
+body.celebrating #new-spot-btn,
+body.celebrating #info,
+body.celebrating #hint {
+  visibility: hidden;
+}
+
+#fade {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#replay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  animation: fade 0.3s ease-out;
+}
+
+.letterbox {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: #000;
+}
+
+.letterbox.top {
+  top: 0;
+  height: calc(env(safe-area-inset-top) + 70px);
+  animation: slide-down 0.35s ease-out;
+}
+
+.letterbox.bottom {
+  bottom: 0;
+  height: calc(env(safe-area-inset-bottom) + 92px);
+  padding: 18px 16px calc(env(safe-area-inset-bottom) + 18px);
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: flex-start;
+  animation: slide-up 0.35s ease-out;
+}
+
+.letterbox.bottom button {
+  pointer-events: auto;
+  touch-action: manipulation;
+  flex: 1;
+  max-width: 180px;
+  padding: 14px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.letterbox.bottom #again-btn {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1b1b1b;
+}
+
+.replay-badge {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 82px);
+  left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.replay-badge::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff3b30;
+  animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(-100%);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}

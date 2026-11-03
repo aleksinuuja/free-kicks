@@ -10,7 +10,7 @@ import {
   notifyConfigChange,
 } from './config.js';
 
-// [min, max, step, label] for numbers, [options[], label] for dropdowns.
+// [min, max, step, label] for numbers, [options[], label] for dropdowns, [label] for toggles.
 const PANEL = {
   shot: {
     title: 'Shot',
@@ -61,6 +61,17 @@ const PANEL = {
     maxDragLength: [60, 500, 5, 'max drag length (px)'],
     tapOverlaySize: [120, 420, 5, 'tap overlay size (px)'],
   },
+  replay: {
+    title: 'Replay',
+    goalPause: [0, 3, 0.05, 'GOAL pause (s)'],
+    slowmo: [0.05, 1, 0.01, 'slow-mo speed'],
+    slowmoWindow: [0, 1.5, 0.05, 'slow-mo before line (s)'],
+    afterGoal: [0.2, 2, 0.05, 'shown after line (s)'],
+    highCam: ['high behind kicker'],
+    sideCam: ['side broadcast'],
+    ballCam: ['ball cam'],
+    netCam: ['behind the net'],
+  },
 };
 
 export function createAdminPanel() {
@@ -71,9 +82,12 @@ export function createAdminPanel() {
     const folder = gui.addFolder(spec.title).close();
     for (const [key, s] of Object.entries(spec)) {
       if (key === 'title') continue;
-      const ctrl = Array.isArray(s[0])
-        ? folder.add(config[group], key, s[0]).name(s[1])
-        : folder.add(config[group], key, s[0], s[1], s[2]).name(s[3]);
+      const ctrl =
+        s.length === 1
+          ? folder.add(config[group], key).name(s[0])
+          : Array.isArray(s[0])
+            ? folder.add(config[group], key, s[0]).name(s[1])
+            : folder.add(config[group], key, s[0], s[1], s[2]).name(s[3]);
       ctrl.onChange(() => {
         saveConfig();
         notifyConfigChange(`${group}.${key}`);

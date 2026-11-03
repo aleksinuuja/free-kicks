@@ -31,7 +31,17 @@
 
     <div id="result" hidden>
       <span id="result-text"></span>
-      <small>Tap to retry</small>
+      <small id="result-sub">Tap to retry</small>
+    </div>
+
+    <div id="fade"></div>
+    <div id="replay" hidden>
+      <div class="letterbox top"></div>
+      <div class="letterbox bottom">
+        <button id="again-btn" type="button">Shoot again</button>
+        <button id="replay-new-btn" type="button">New spot</button>
+      </div>
+      <div class="replay-badge">Replay</div>
     </div>
 
     <div id="strike-overlay" hidden>
