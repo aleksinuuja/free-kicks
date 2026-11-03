@@ -1,0 +1,53 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  Free-kick tuning defaults
+//
+//  Every feel-related value in the game lives here.
+//  To bake in values tuned with the admin panel (open the game with ?admin):
+//    1. Press "Export JSON" in the panel (copies to clipboard)
+//    2. Paste it over the object below
+//
+//  Units: metres, seconds, m/s, radians/s, degrees where noted.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default {
+  shot: {
+    maxPower: 30, // ball speed (m/s) at 100 % power
+    minPower: 8, // ball speed (m/s) at 0 % power
+    powerCurve: 'eased', // 'linear' | 'eased' (eased = finer control near both ends)
+    minLift: 2, // launch angle (°) when striking the top of the ball
+    maxLift: 26, // launch angle (°) when striking the bottom of the ball
+    maxSpin: 60, // sidespin (rad/s) when striking the very edge of the ball
+    topspin: 0.15, // share of maxSpin turned into top/backspin by vertical strike point
+    spinDecay: 0.5, // exponential spin decay rate (1/s)
+  },
+  physics: {
+    gravity: 9.81, // m/s²
+    airDrag: 0.012, // quadratic drag coefficient (1/m)
+    magnus: 0.0065, // Magnus force strength (spin × velocity)
+    restitution: 0.55, // ground bounce (0 = dead, 1 = perfect)
+    groundFriction: 2.5, // rolling deceleration (m/s²)
+  },
+  keeper: {
+    reactionDelay: 0.22, // s after the kick before the keeper reads the shot
+    diveSpeed: 6.5, // m/s of body travel during a dive
+    reach: 1.7, // max body travel (m) from the ready position; arms add ~1.1 m
+    skillRandomness: 0.35, // 0 = perfect read, 1 = often guesses wrong
+  },
+  wall: {
+    count: 4, // defenders (3–5)
+    distance: 9.15, // m from the ball
+    height: 1.85, // defender height (m)
+    jumpHeight: 0.35, // m
+    jumpTiming: 0.05, // s after the kick before the jump starts
+  },
+  camera: {
+    height: 3, // m above ground
+    distance: 6, // m behind the ball
+    fov: 50, // vertical field of view (°)
+  },
+  input: {
+    dragSensitivity: 0.5, // screen drag angle → shot angle multiplier
+    maxDragLength: 200, // px of drag for 100 % power
+    tapOverlaySize: 240, // px diameter of the strike-point ball
+  },
+};

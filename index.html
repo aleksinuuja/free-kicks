@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#173d22" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Free Kicks</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%27-10 -10 20 20%27%3E%3Ccircle r=%279.5%27 fill=%27%23fff%27 stroke=%27%23222%27/%3E%3Cpolygon points=%270,-3.5 3.3,-1.1 2,2.8 -2,2.8 -3.3,-1.1%27 fill=%27%23222%27/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="hud">
+      <div class="stats">
+        <div class="stat"><b id="stat-shots">0</b>shots</div>
+        <div class="stat"><b id="stat-goals">0</b>goals</div>
+        <div class="stat"><b id="stat-streak">0</b>streak</div>
+      </div>
+      <button id="mode-btn" type="button" aria-pressed="false">Spot: same</button>
+    </div>
+
+    <div id="info"></div>
+    <div id="hint"></div>
+    <div id="power-label" hidden></div>
+
+    <div id="result" hidden>
+      <span id="result-text"></span>
+      <small>Tap to retry</small>
+    </div>
+
+    <div id="strike-overlay" hidden>
+      <p class="strike-title">Tap where to strike the ball</p>
+      <div class="strike-ball">
+        <svg viewBox="-100 -100 200 200" aria-hidden="true">
+          <defs>
+            <radialGradient id="ball-shade" cx="-0.3" cy="-0.35" r="1.2">
+              <stop offset="0" stop-color="#ffffff" />
+              <stop offset="0.7" stop-color="#e9ece8" />
+              <stop offset="1" stop-color="#b9c0bd" />
+            </radialGradient>
+            <clipPath id="ball-clip"><circle r="98" /></clipPath>
+          </defs>
+          <circle r="98" fill="url(#ball-shade)" />
+          <g clip-path="url(#ball-clip)" fill="#26303a" opacity="0.85">
+            <polygon points="0,-26 24.7,-8 15.3,21 -15.3,21 -24.7,-8" />
+            <polygon points="0,-26 24.7,-8 15.3,21 -15.3,21 -24.7,-8" transform="translate(0,-92) rotate(180)" />
+            <polygon points="0,-26 24.7,-8 15.3,21 -15.3,21 -24.7,-8" transform="rotate(72) translate(0,-92) rotate(180)" />
+            <polygon points="0,-26 24.7,-8 15.3,21 -15.3,21 -24.7,-8" transform="rotate(144) translate(0,-92) rotate(180)" />
+            <polygon points="0,-26 24.7,-8 15.3,21 -15.3,21 -24.7,-8" transform="rotate(216) translate(0,-92) rotate(180)" />
+            <polygon points="0,-26 24.7,-8 15.3,21 -15.3,21 -24.7,-8" transform="rotate(288) translate(0,-92) rotate(180)" />
+          </g>
+          <g stroke="#0b6bd6" stroke-width="1.2" stroke-dasharray="4 5" opacity="0.6">
+            <line x1="-98" y1="0" x2="98" y2="0" />
+            <line x1="0" y1="-98" x2="0" y2="98" />
+          </g>
+          <circle r="98" fill="none" stroke="#ffffff" stroke-width="2" />
+        </svg>
+        <div class="strike-marker" hidden></div>
+        <span class="strike-label top">driven</span>
+        <span class="strike-label bottom">lifted</span>
+        <span class="strike-label left">bend ⟶</span>
+        <span class="strike-label right">⟵ bend</span>
+      </div>
+      <p class="strike-sub">Tap outside to re-aim</p>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
