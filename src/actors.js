@@ -6,11 +6,13 @@ import { makeCapsule } from './physics.js';
 
 const MODEL_HEIGHT = 1.8; // height the player mesh is built at, before scaling
 const SHOULDER_Y = 1.3;
-const SHOULDER_X = 0.24;
+const SHOULDER_X = 0.28;
 const ARM_LENGTH = 0.5; // shoulder → hand centre
 
 const SKINS = [0xe0ac69, 0x8d5524, 0xc68642, 0xf1c27d, 0x6b4226];
 const HAIRS = [0x2a1c12, 0x6b3e1f, 0x111111, 0xc9a25a, 0x3b2a1a];
+// Hair styles handed out in turn along the wall, so it always looks varied.
+const WALL_HAIR_STYLES = ['crop', 'curly', 'receding', 'flat', 'bald'];
 
 // Both kits belong to the same (made-up) club, so they share the crest.
 const CREST = { shield: 0xffffff, mark: 0xd83a2a };
@@ -23,7 +25,8 @@ const KEEPER_KIT = {
   boots: 0x1b1b1b,
   skin: 0xc68642,
   hair: 0x3b2a1a,
-  hairStyle: 0,
+  hairStyle: 'crop',
+  seed: 4242,
   gloves: 0x35c2f0,
 };
 
@@ -76,7 +79,98 @@ function buildCrest() {
   return g;
 }
 
-/** Builds a ~1.8 m cartoon player (big head), feet at y = 0, facing +z. */
+/** Small seeded PRNG so each player's random face stays the same across rebuilds. */
+function rng(seed) {
+  let a = seed >>> 0 || 1;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const darken = (hex, k) => new THREE.Color(hex).lerp(new THREE.Color(0x2e2a26), k).getHex();
+
+/**
+ * Adult cartoon head: tall skull, protruding muzzle, big close-set eyes, thick
+ * neck. Everything varies a little per player via `rand`. Neck base at y = 1.36,
+ * top of skull ≈ 1.8.
+ */
+function buildHead(root, kit, rand) {
+  const r = (a, b) => a + (b - a) * rand();
+  const pick = (list) => list[Math.floor(rand() * list.length)];
+  const { skin, hair } = kit;
+
+  const head = new THREE.Group();
+  head.position.y = 1.36;
+  root.add(head);
+
+  const skullW = r(0.92, 1.08);
+  const skullH = r(1.15, 1.35);
+  const jaw = r(0.9, 1.2);
+  const noseSize = r(0.8, 1.35);
+  const eyeSize = r(0.85, 1.15);
+  const eyeGap = r(0.92, 1.15);
+  const skullY = 0.26;
+
+  part(head, new THREE.CylinderGeometry(0.075, 0.085, 0.14, 12), skin, 0, 0.05, 0); // neck
+  part(head, sphere(0.15), skin, 0, skullY, -0.005, [skullW, skullH, 1]); // skull
+
+  // Muzzle (jaw area), optionally stubbled or bearded.
+  const facial = pick(['clean', 'clean', 'stubble', 'stubble', 'beard', 'moustache']);
+  const muzzle = facial === 'stubble' ? darken(skin, 0.3) : facial === 'beard' ? hair : skin;
+  part(head, sphere(0.11), muzzle, 0, 0.15, 0.055, [skullW * 1.05 * jaw, 0.8 * jaw, 1]);
+  const mouth = part(head, sphere(1), 0x3a1c18, r(-0.01, 0.01), 0.12, 0.155, [0.045 * jaw, 0.007, 0.01]);
+  mouth.rotation.z = r(-0.25, 0.25);
+  if (facial === 'moustache') {
+    const m = part(head, capsule(0.018, 0.06), hair, 0, 0.17, 0.162);
+    m.rotation.z = Math.PI / 2;
+  }
+
+  // Nose: a long, slightly drooping capsule.
+  const nose = part(head, capsule(0.028 * noseSize, 0.045 * noseSize), skin, 0, 0.21, 0.155 + 0.02 * noseSize);
+  nose.rotation.x = Math.PI / 2 + r(0, 0.5);
+
+  // Eyes: big whites almost touching, pupils with a random gaze, sometimes sleepy lids.
+  const eyeR = 0.048 * eyeSize;
+  const gaze = new THREE.Vector3(r(-0.3, 0.3), r(-0.2, 0.2), 1).normalize();
+  const sleepy = rand() < 0.45 ? r(0.25, 0.45) : 0;
+  const browTilt = r(-0.3, 0.3);
+  for (const s of [-1, 1]) {
+    const ex = s * 0.05 * eyeGap;
+    const ey = 0.29;
+    const ez = 0.13;
+    part(head, sphere(eyeR), 0xffffff, ex, ey, ez);
+    part(head, sphere(0.013), 0x111111, ex + gaze.x * eyeR, ey + gaze.y * eyeR, ez + gaze.z * (eyeR - 0.004));
+    if (sleepy) part(head, hairCap(eyeR * 1.06, sleepy), skin, ex, ey, ez).rotation.x = r(0.5, 0.9);
+    const brow = part(head, capsule(0.012, 0.045), hair, ex, ey + eyeR + 0.02, 0.135);
+    brow.rotation.z = Math.PI / 2 + s * browTilt;
+    part(head, sphere(0.04), skin, s * 0.15 * skullW, 0.23, 0, [0.45 * r(0.9, 1.3), 1, 0.75]); // ear
+  }
+
+  // Hair
+  const style = kit.hairStyle ?? pick(['crop', 'crop', 'receding', 'curly', 'bald', 'flat']);
+  const skullScale = [skullW, skullH, 1];
+  if (style === 'crop' || style === 'flat') {
+    part(head, hairCap(0.158, 0.47), hair, 0, skullY, -0.005, skullScale).rotation.x = -0.3;
+  }
+  if (style === 'flat') {
+    part(head, new THREE.CylinderGeometry(0.13 * skullW, 0.14 * skullW, 0.09, 16), hair, 0, skullY + 0.15 * skullH - 0.01, -0.02);
+  }
+  if (style === 'receding') {
+    part(head, hairCap(0.158, 0.62), hair, 0, skullY, -0.005, skullScale).rotation.x = -1.15;
+  }
+  if (style === 'curly') {
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2;
+      const rr = i === 0 ? 0 : 0.08;
+      part(head, sphere(r(0.05, 0.065)), hair, Math.cos(a) * rr * skullW, skullY + 0.15 * skullH - 0.015, Math.sin(a) * rr - 0.02);
+    }
+  }
+}
+
+/** Builds a ~1.8 m cartoon player, feet at y = 0, facing +z. */
 function buildPlayer(kit) {
   const root = new THREE.Group();
 
@@ -92,28 +186,15 @@ function buildPlayer(kit) {
     part(root, new THREE.CylinderGeometry(0.1, 0.105, 0.16, 12), kit.shorts, s * 0.1, 0.68, 0);
   }
 
-  // Torso, collar and crest (on the wearer's left chest, i.e. +x when facing +z)
-  part(root, capsule(0.2, 0.2), kit.shirt, 0, 1.08, 0, [1.05, 1, 0.72]);
-  const collar = part(root, new THREE.TorusGeometry(0.085, 0.022, 8, 20), kit.trim, 0, 1.36, 0);
+  // Torso (broad shoulders), collar and crest (wearer's left chest, i.e. +x when facing +z)
+  part(root, capsule(0.2, 0.2), kit.shirt, 0, 1.08, 0, [1.2, 1, 0.72]);
+  const collar = part(root, new THREE.TorusGeometry(0.095, 0.022, 8, 20), kit.trim, 0, 1.37, 0);
   collar.rotation.x = Math.PI / 2;
   const crest = buildCrest();
-  crest.position.set(0.085, 1.16, 0.146);
+  crest.position.set(0.1, 1.16, 0.146);
   root.add(crest);
 
-  // Head: big and round, with simple face
-  part(root, sphere(0.22), kit.skin, 0, 1.57, 0);
-  for (const s of [-1, 1]) {
-    part(root, sphere(0.032), 0x1a1a1a, s * 0.075, 1.6, 0.195);
-    part(root, sphere(0.045), kit.skin, s * 0.215, 1.56, 0);
-  }
-  part(root, sphere(0.035), kit.skin, 0, 1.54, 0.215);
-
-  // Hair: 0 = short cap, 1 = big curls, 2 = shaved
-  if (kit.hairStyle === 0) {
-    part(root, hairCap(0.232, 0.42), kit.hair, 0, 1.57, 0).rotation.x = -0.35;
-  } else if (kit.hairStyle === 1) {
-    part(root, hairCap(0.27, 0.5), kit.hair, 0, 1.58, -0.03).rotation.x = -0.4;
-  }
+  buildHead(root, kit, rng(kit.seed));
 
   // Arms (pivot at the shoulder, hanging down)
   const arms = [];
@@ -172,7 +253,8 @@ export class Wall {
         ...WALL_KIT,
         skin: SKINS[(i * 3) % SKINS.length],
         hair: HAIRS[(i * 2) % HAIRS.length],
-        hairStyle: i % 3,
+        hairStyle: WALL_HAIR_STYLES[i % WALL_HAIR_STYLES.length],
+        seed: 101 + i * 7919,
       });
       root.scale.setScalar(cfg.height / MODEL_HEIGHT);
       this.group.add(root);
