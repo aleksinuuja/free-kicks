@@ -10,6 +10,7 @@ import { BallBody, stepBall, predictCrossing, GOAL_COLLIDERS, BALL_RADIUS, GOAL 
 import { AimInput, OrbitInput, StrikePicker } from './input.js';
 import * as hud from './hud.js';
 import { Recorder, ReplayDirector } from './replay.js';
+import { keeperSettings, getDifficulty, nextDifficulty } from './difficulty.js';
 
 const KEEPER_Z = 0.35; // keeper stands just in front of the goal line
 const RESULT_HOLD = 1.5; // s before auto-reset
@@ -161,6 +162,7 @@ function kick(strike) {
   ball.spin.set(0, side * s.maxSpin, 0).addScaledVector(right, -strike.v * s.maxSpin * s.topspin);
 
   wall.kick(config.wall);
+  game.keeper = keeperSettings(config.keeper); // difficulty applied, fixed for this shot
   game.keeperReacted = false;
   game.keeperTouched = false;
   game.held = false;
@@ -182,7 +184,7 @@ function keeperReact() {
   game.keeperReacted = true;
   const pred = predictCrossing(ball, KEEPER_Z, config);
   if (!pred) return;
-  const k = config.keeper;
+  const k = game.keeper;
   const home = keeper.home;
   const target = {
     x: clamp(pred.x, -GOAL.halfWidth - 0.6, GOAL.halfWidth + 0.6),
@@ -208,7 +210,7 @@ function keeperReact() {
     const dx = target.x - home.x;
     const dy = target.y - home.y;
     const dist = Math.max(Math.hypot(dx, dy), 0.01);
-    const leap = { reachScale: 1.35, hop: 0.3 };
+    const leap = { reachScale: 1.35 };
     if (dist < 2) {
       const over = Math.max(dist + 0.6, 2.3) / dist; // hands well past the ball's line, body really travels
       keeper.dive({ x: home.x + dx * over, y: home.y + dy * over }, k, pred.t + 0.3, leap);
@@ -231,7 +233,7 @@ function keeperReact() {
 
   if (!beaten) {
     keeper.dive(target, k, pred.t); // good read: right place, right time (reach still limits)
-  } else if (placement < 0.5 && Math.random() < 0.2) {
+  } else if (placement < 0.5 && Math.random() < k.wrongWay) {
     // Fooled on a more central shot: commits the wrong way.
     game.keeperBeaten = true;
     keeper.dive({ x: home.x - (target.x - home.x), y: target.y }, k, pred.t);
@@ -243,7 +245,7 @@ function keeperReact() {
 /** First touch on the keeper: fumble, solid catch, or a punch away. */
 function onKeeperContact(speedBefore) {
   game.keeperTouched = true;
-  const k = config.keeper;
+  const k = game.keeper;
   if (game.easyShot && Math.random() < k.fumbleChance * game.shotEase) {
     // Right place, right time... and it squirms through into the net.
     game.fumbled = true;
@@ -419,6 +421,15 @@ hud.newSpotButton.addEventListener('click', () => {
   if (idle || missed) newSpot();
 });
 
+// Keeper difficulty: Dumbass → Normal → Super. Same rules as "New spot" for when it can change.
+hud.setDifficulty(getDifficulty().label);
+hud.difficultyButton.addEventListener('pointerdown', (e) => e.stopPropagation());
+hud.difficultyButton.addEventListener('click', () => {
+  const idle = game.phase === 'aim' && aimInput.pointerId === null;
+  const missed = game.phase === 'result' && game.result !== 'GOAL';
+  if (idle || missed) hud.setDifficulty(nextDifficulty().label);
+});
+
 // Replay buttons: the only way out of a goal replay.
 for (const [btn, action] of [
   [hud.againButton, resetShot],
@@ -485,7 +496,7 @@ function update(dt) {
   const flying = game.phase === 'flight' || game.phase === 'result';
 
   if (flying) {
-    if (game.phase === 'flight' && !game.keeperReacted && ball.time >= config.keeper.reactionDelay) {
+    if (game.phase === 'flight' && !game.keeperReacted && ball.time >= game.keeper.reactionDelay) {
       keeperReact();
     }
     wall.update(dt, config.wall, config.physics.gravity);

@@ -58,7 +58,8 @@ body {
 }
 
 .stat,
-#new-spot-btn {
+#new-spot-btn,
+#difficulty-btn {
   background: var(--chip);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
@@ -82,7 +83,15 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-#new-spot-btn {
+.hud-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+#new-spot-btn,
+#difficulty-btn {
   pointer-events: auto;
   touch-action: manipulation;
   border: 1px solid rgba(255, 255, 255, 0.25);
@@ -94,6 +103,28 @@ body {
   cursor: pointer;
 }
 
+#difficulty-btn {
+  padding: 5px 12px 7px;
+  min-width: 84px;
+  text-align: center;
+}
+
+#difficulty-btn small {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+#difficulty-btn[data-level='dumbass'] {
+  color: #9fe870;
+}
+
+#difficulty-btn[data-level='super'] {
+  color: #ff8d6b;
+}
 
 #info,
 #hint {
@@ -268,7 +299,7 @@ body {
 
 /* ── Goal replay ─────────────────────────────────────────────────────────── */
 
-body.celebrating #new-spot-btn,
+body.celebrating .hud-right,
 body.celebrating #info,
 body.celebrating #hint {
   visibility: hidden;

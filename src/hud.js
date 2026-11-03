@@ -7,6 +7,7 @@ const el = {
   goals: $('stat-goals'),
   streak: $('stat-streak'),
   newSpot: $('new-spot-btn'),
+  difficulty: $('difficulty-btn'),
   info: $('info'),
   hint: $('hint'),
   power: $('power-label'),
@@ -21,6 +22,7 @@ const el = {
 };
 
 export const newSpotButton = el.newSpot;
+export const difficultyButton = el.difficulty;
 export const againButton = el.again;
 export const replayNewButton = el.replayNew;
 
@@ -28,6 +30,11 @@ export function setStats({ shots, goals, streak }) {
   el.shots.textContent = shots;
   el.goals.textContent = goals;
   el.streak.textContent = streak;
+}
+
+export function setDifficulty(label) {
+  el.difficulty.innerHTML = `<small>Keeper</small>${label}`;
+  el.difficulty.dataset.level = label.toLowerCase();
 }
 
 export function setInfo(text) {

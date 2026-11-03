@@ -30,8 +30,9 @@ export default {
     groundFriction: 2.5, // rolling deceleration (m/s²)
   },
   keeper: {
+    // These are the Normal difficulty; Dumbass and Super are derived from them (src/difficulty.js).
     reactionDelay: 0.22, // s after the kick before the keeper reads the shot
-    diveSpeed: 6.5, // m/s of body travel during a dive
+    diveSpeed: 6.5, // m/s average hip speed to full stretch (sets the jump; he then flies on, lands and slides)
     reach: 2.3, // max body travel (m) from the ready position; arms add ~1 m
     skillRandomness: 0.35, // how beatable on hard shots: 0 = only the reach limit beats him, 1 = often misreads
     perfectZone: 0.6, // on-target shots this close (m) to the inside of a post always beat him

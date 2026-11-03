@@ -14,7 +14,8 @@ npm run build      # static files in dist/
 2. **Tap the big ball**: centre or above = flat, lower = more lift (steeply near the edge);
    left side = bends right, right side = bends left. Tap outside the ball to re-aim.
 3. Tap anywhere (or wait 1.5 s) to retry the same spot. **New spot** picks a random position.
-4. Score and the goal is replayed in a loop from several angles, slowing down as the ball
+4. **Keeper** (top right) toggles the goalkeeper: Dumbass → Normal → Super.
+5. Score and the goal is replayed in a loop from several angles, slowing down as the ball
    goes in. **Shoot again** or **New spot** to carry on.
 
 Dragging on the field away from the ball swings the camera around for a look; it eases back.
@@ -43,5 +44,6 @@ In the repo settings, set **Pages → Source** to **GitHub Actions**.
 | `src/world.js` | renderer, pitch, goal, stands, ball mesh, aim arrow |
 | `src/input.js` | drag-to-aim and strike-point picker |
 | `src/hud.js` | stats, hints, result banner, replay overlay |
+| `src/difficulty.js` | keeper difficulty levels (derived from `config.keeper`) |
 | `src/replay.js` | shot recorder and goal-replay camera director |
 | `src/config*.js`, `src/admin.js` | tuning config, persistence, lil-gui panel |

@@ -340,6 +340,11 @@ const HOLD_FORWARD = 1.3; // arms forward, ball held at the chest
 const HOLD_POINT = { y: 0.37, z: 0.47 }; // ball position in the body frame when held
 const DIVE_SPREAD = 3.25; // a little past straight up: hands come together overhead
 const GROUND_HIP = 0.3; // hip height when lying on the ground
+const GRAVITY = 9.81;
+const AIR_BRAKE = 2.5; // 1/s: sideways momentum lost once fully stretched (body opens out)
+const LANDING_GRIP = 0.6; // share of sideways speed kept when hitting the grass
+const SLIDE_DECEL = 16; // m/s² of grass friction once he lands on his side
+const STEP_DECEL = 20; // landing on his feet stops him quickly
 
 const lerp = THREE.MathUtils.lerp;
 const clamp = THREE.MathUtils.clamp;
@@ -357,11 +362,14 @@ export class Keeper {
     this.c = new THREE.Vector2(); // current hip position (x, y)
     this.from = new THREE.Vector2();
     this.to = new THREE.Vector2();
+    this.vel = new THREE.Vector2(); // hip velocity once airborne
     this.z = 0.35;
     this.angle = 0; // lean: 0 = upright, +π/2 = lying towards +x
     this.diveAngle = 0;
     this.spread = READY_SPREAD;
-    this.phase = 'ready'; // ready → waiting → diving → falling, or → gather after a catch
+    // ready → waiting → diving (airborne) → sliding (on the grass); a catch adds → getup
+    this.phase = 'ready';
+    this.gathering = false;
     this.forward = 0;
     this.gatherT = 0; // 0…1 progress of pulling a caught ball into the chest
     this.gatherFrom = null;
@@ -384,6 +392,8 @@ export class Keeper {
     this.forward = 0;
     this.gatherT = 0;
     this.diveAngle = 0;
+    this.vel.set(0, 0);
+    this.gathering = false;
     this.phase = 'ready';
     this.apply();
   }
@@ -393,12 +403,17 @@ export class Keeper {
     return cfg.reach + HAND_REACH;
   }
 
-  /** Caught it: keep falling for a moment, then get up and pull the ball into the chest. */
+  /** Caught it: finish the dive (land, slide), then get up and pull the ball into the chest. */
   gather() {
-    this.phase = 'gather';
-    this.t = 0;
+    this.gathering = true;
     this.gatherT = 0;
-    this.gatherFrom = null;
+    if (this.phase === 'ready' || this.phase === 'waiting') this.#getUp();
+  }
+
+  #getUp() {
+    this.phase = 'getup';
+    this.t = 0;
+    this.gatherFrom = { x: this.c.x, y: this.c.y, angle: this.angle, spread: this.spread };
   }
 
   /** Where a caught ball sits: between the gloves, moving to the chest as he gathers it. */
@@ -414,9 +429,10 @@ export class Keeper {
   }
 
   /** Dive so the hands reach `target` ({x, y} in the keeper's plane), as far
-   *  as `cfg.reach` allows, timed to finish just before `arriveIn` seconds.
-   *  `reachScale` and `hop` make for a more spectacular leap. */
-  dive(target, cfg, arriveIn = 0, { reachScale = 1, hop = 0.12 } = {}) {
+   *  as `cfg.reach` allows, getting there at `arriveIn` seconds. The dive is a
+   *  real jump: launched so the hips fly through that point under gravity, he
+   *  carries on past it, lands and slides. `reachScale` makes for a longer leap. */
+  dive(target, cfg, arriveIn = 0, { reachScale = 1 } = {}) {
     const reach = cfg.reach * reachScale;
     const dx = target.x - this.home.x;
     const dy = target.y - this.home.y;
@@ -434,10 +450,12 @@ export class Keeper {
 
     this.diveAngle = ang;
     this.from.copy(this.c);
-    this.duration = Math.max(0.22, Math.min(dist, reach) / cfg.diveSpeed);
-    this.hop = hop;
+    const T = Math.max(0.22, Math.min(dist, reach) / cfg.diveSpeed);
+    this.duration = T;
+    // Launch velocity that puts the hips on `to` after T seconds of free flight.
+    this.vel.set((this.to.x - this.from.x) / T, (this.to.y - this.from.y + 0.5 * GRAVITY * T * T) / T);
     this.phase = 'waiting';
-    this.t = -Math.max(0, arriveIn - this.duration - 0.08);
+    this.t = -Math.max(0, arriveIn - T);
   }
 
   update(dt) {
@@ -453,31 +471,17 @@ export class Keeper {
           this.t = 0;
         }
         break;
-      case 'diving': {
-        const p = Math.min(1, this.t / this.duration);
-        const e = 1 - (1 - p) ** 3;
-        this.c.lerpVectors(this.from, this.to, e);
-        this.c.y += Math.sin(Math.PI * p) * this.hop;
-        this.angle = this.diveAngle * e;
-        this.spread = lerp(READY_SPREAD, DIVE_SPREAD, Math.min(1, p * 2));
-        if (p >= 1) {
-          this.phase = 'falling';
-          this.t = 0;
-        }
+      case 'diving':
+        this.#fly(dt);
         break;
-      }
-      case 'falling':
-        this.fall(dt);
+      case 'sliding':
+        this.#slide(dt);
+        if (this.gathering && this.t > 0.2) this.#getUp();
         break;
-      case 'gather': {
-        // Brief moment in the dive, then stand up with the ball pulled into the chest.
-        if (this.t < 0.3) {
-          this.fall(dt);
-          break;
-        }
-        this.gatherFrom ??= { x: this.c.x, y: this.c.y, angle: this.angle, spread: this.spread };
+      case 'getup': {
+        // Stand up with the ball pulled into the chest.
         const f = this.gatherFrom;
-        const p = Math.min(1, (this.t - 0.3) / 0.6);
+        const p = Math.min(1, this.t / 0.6);
         const g = p * p * (3 - 2 * p);
         this.c.set(f.x, lerp(f.y, HIP, g));
         this.angle = lerp(f.angle, 0, g);
@@ -490,13 +494,46 @@ export class Keeper {
     this.apply();
   }
 
-  /** Land after a dive: sideways dives end lying on the grass, jumps land on the feet. */
-  fall(dt) {
-    if (this.t <= 0.15) return;
-    const sideways = Math.abs(this.diveAngle) > 0.5;
-    const k = 1 - Math.exp(-6 * dt);
-    this.c.y = lerp(this.c.y, sideways ? GROUND_HIP : HIP, k);
-    this.angle = lerp(this.angle, sideways ? Math.sign(this.diveAngle) * 1.5 : 0, k);
+  /** Sideways dives end lying on the grass; jumps (mostly upwards) land on the feet. */
+  get #sideways() {
+    return Math.abs(this.diveAngle) > 0.5;
+  }
+
+  /** Airborne: ballistic hips, body rotating into the dive and then towards the landing. */
+  #fly(dt) {
+    this.vel.y -= GRAVITY * dt;
+    this.c.addScaledVector(this.vel, dt);
+
+    const p = Math.min(1, this.t / this.duration);
+    if (p < 1) this.angle = this.diveAngle * (1 - (1 - p) ** 2);
+    else {
+      this.#settleAngle(dt, 3);
+      this.vel.x *= Math.exp(-AIR_BRAKE * dt);
+    }
+    this.spread = lerp(READY_SPREAD, DIVE_SPREAD, Math.min(1, p * 2));
+
+    const floor = this.#sideways ? GROUND_HIP : HIP;
+    if (this.vel.y < 0 && this.c.y <= floor) {
+      this.c.y = floor;
+      this.vel.y = 0;
+      this.vel.x *= LANDING_GRIP;
+      this.phase = 'sliding';
+      this.t = 0;
+    }
+  }
+
+  /** On the grass: friction slows the slide, the body settles flat (or upright). */
+  #slide(dt) {
+    const v = Math.abs(this.vel.x);
+    const decel = this.#sideways ? SLIDE_DECEL : STEP_DECEL;
+    this.vel.x = Math.sign(this.vel.x) * Math.max(0, v - decel * dt);
+    this.c.x += this.vel.x * dt;
+    this.#settleAngle(dt, 8);
+  }
+
+  #settleAngle(dt, rate) {
+    const rest = this.#sideways ? Math.sign(this.diveAngle) * 1.5 : 0;
+    this.angle = lerp(this.angle, rest, 1 - Math.exp(-rate * dt));
   }
 
   apply() {
