@@ -212,9 +212,13 @@ function buildPlayer(kit) {
   return { root, arms };
 }
 
-/** spread: 0 = arms down, π/2 = horizontal, π = straight up. */
-function setArms(arms, spread) {
-  for (const a of arms) a.rotation.z = a.userData.side * spread;
+/** spread: 0 = arms down, π/2 = horizontal, π = straight up (sideways).
+ *  forward: swings the arms forward (radians), e.g. to hold a ball at the chest. */
+function setArms(arms, spread, forward = 0) {
+  for (const a of arms) {
+    a.rotation.z = a.userData.side * spread;
+    a.rotation.x = -forward;
+  }
 }
 
 function disposeTree(obj) {
@@ -331,6 +335,9 @@ export class Wall {
 const HIP = 0.8;
 const HAND_REACH = 1.05; // hip → hands with arms overhead
 const READY_SPREAD = 0.55;
+const HOLD_SPREAD = -0.25; // slightly inward: gloves either side of the ball
+const HOLD_FORWARD = 1.3; // arms forward, ball held at the chest
+const HOLD_POINT = { y: 0.37, z: 0.47 }; // ball position in the body frame when held
 const DIVE_SPREAD = 3.25; // a little past straight up: hands come together overhead
 const GROUND_HIP = 0.3; // hip height when lying on the ground
 
@@ -354,7 +361,10 @@ export class Keeper {
     this.angle = 0; // lean: 0 = upright, +π/2 = lying towards +x
     this.diveAngle = 0;
     this.spread = READY_SPREAD;
-    this.phase = 'ready'; // ready → waiting → diving → falling
+    this.phase = 'ready'; // ready → waiting → diving → falling, or → gather after a catch
+    this.forward = 0;
+    this.gatherT = 0; // 0…1 progress of pulling a caught ball into the chest
+    this.gatherFrom = null;
     this.t = 0;
     this.idle = 0;
 
@@ -371,6 +381,9 @@ export class Keeper {
     this.z = z;
     this.angle = 0;
     this.spread = READY_SPREAD;
+    this.forward = 0;
+    this.gatherT = 0;
+    this.diveAngle = 0;
     this.phase = 'ready';
     this.apply();
   }
@@ -380,9 +393,24 @@ export class Keeper {
     return cfg.reach + HAND_REACH;
   }
 
-  /** Where a caught ball sits: between the gloves, just in front of him. */
-  catchPoint(out) {
-    return out.addVectors(this.armL.b, this.armR.b).multiplyScalar(0.5).setZ(this.z + 0.18);
+  /** Caught it: keep falling for a moment, then get up and pull the ball into the chest. */
+  gather() {
+    this.phase = 'gather';
+    this.t = 0;
+    this.gatherT = 0;
+    this.gatherFrom = null;
+  }
+
+  /** Where a caught ball sits: between the gloves, moving to the chest as he gathers it. */
+  holdPoint(out) {
+    out.addVectors(this.armL.b, this.armR.b).multiplyScalar(0.5).setZ(this.z + 0.18);
+    if (this.gatherT > 0) {
+      const ax = Math.sin(this.angle);
+      const ay = Math.cos(this.angle);
+      const chest = new THREE.Vector3(this.c.x + ax * HOLD_POINT.y, this.c.y + ay * HOLD_POINT.y, this.z + HOLD_POINT.z);
+      out.lerp(chest, this.gatherT);
+    }
+    return out;
   }
 
   /** Dive so the hands reach `target` ({x, y} in the keeper's plane), as far
@@ -435,25 +463,44 @@ export class Keeper {
         }
         break;
       }
-      case 'falling': {
-        // Land: sideways dives end lying on the grass, jumps land on the feet.
-        const sideways = Math.abs(this.diveAngle) > 0.5;
-        const k = 1 - Math.exp(-6 * dt);
-        if (this.t > 0.15) {
-          this.c.y = lerp(this.c.y, sideways ? GROUND_HIP : HIP, k);
-          this.angle = lerp(this.angle, sideways ? Math.sign(this.diveAngle) * 1.5 : 0, k);
+      case 'falling':
+        this.fall(dt);
+        break;
+      case 'gather': {
+        // Brief moment in the dive, then stand up with the ball pulled into the chest.
+        if (this.t < 0.3) {
+          this.fall(dt);
+          break;
         }
+        this.gatherFrom ??= { x: this.c.x, y: this.c.y, angle: this.angle, spread: this.spread };
+        const f = this.gatherFrom;
+        const p = Math.min(1, (this.t - 0.3) / 0.6);
+        const g = p * p * (3 - 2 * p);
+        this.c.set(f.x, lerp(f.y, HIP, g));
+        this.angle = lerp(f.angle, 0, g);
+        this.spread = lerp(f.spread, HOLD_SPREAD, g);
+        this.forward = HOLD_FORWARD * g;
+        this.gatherT = g;
         break;
       }
     }
     this.apply();
   }
 
+  /** Land after a dive: sideways dives end lying on the grass, jumps land on the feet. */
+  fall(dt) {
+    if (this.t <= 0.15) return;
+    const sideways = Math.abs(this.diveAngle) > 0.5;
+    const k = 1 - Math.exp(-6 * dt);
+    this.c.y = lerp(this.c.y, sideways ? GROUND_HIP : HIP, k);
+    this.angle = lerp(this.angle, sideways ? Math.sign(this.diveAngle) * 1.5 : 0, k);
+  }
+
   apply() {
     const { c, z } = this;
     this.pivot.position.set(c.x, c.y, z);
     this.pivot.rotation.z = -this.angle;
-    setArms(this.arms, this.spread);
+    setArms(this.arms, this.spread, this.forward);
 
     // Body axis (a) and side axis (b) in world x/y.
     const ax = Math.sin(this.angle);

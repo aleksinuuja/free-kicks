@@ -160,6 +160,7 @@ function kick(strike) {
   game.held = false;
   game.fumbled = false;
   game.keeperBeaten = false;
+  game.punched = false;
   game.easyShot = true;
   game.shotEase = 0;
   game.phase = 'flight';
@@ -212,7 +213,7 @@ function keeperReact() {
   keeper.dive(misread, k, pred.t + rand(0.1, 0.25));
 }
 
-/** First touch on the keeper: fumble, catch, or (physics already did it) parry. */
+/** First touch on the keeper: fumble, solid catch, or a punch away. */
 function onKeeperContact(speedBefore) {
   game.keeperTouched = true;
   const k = config.keeper;
@@ -225,12 +226,24 @@ function onKeeperContact(speedBefore) {
     callout.active = true;
     callout.time = 0;
     hud.showCallout('Fumble!');
-  } else if (speedBefore < k.catchSpeed) {
-    game.held = true;
+    return;
+  }
+
+  // Save: slow shots are caught, hard ones fisted away; around catchSpeed it can go either way.
+  const catchOdds = clamp((k.catchSpeed + 4 - speedBefore) / 8, 0, 1);
+  if (Math.random() < catchOdds) {
+    game.held = true; // solid save: ball stays in his grip (see update loop)
     ball.vel.set(0, 0, 0);
     ball.spin.set(0, 0, 0);
-    if (game.phase === 'flight') finish('SAVED');
+    keeper.gather();
+  } else {
+    // Punch: out towards the field, wide of the goal and up, then it bounces away.
+    game.punched = true;
+    const side = Math.sign(ball.pos.x) || (Math.random() < 0.5 ? -1 : 1);
+    ball.vel.set(side * rand(2.5, 5.5), rand(2.5, 5), rand(7, 10.5));
+    ball.spin.set(rand(-15, 15), rand(-15, 15), 0);
   }
+  if (game.phase === 'flight') finish('SAVED');
 }
 
 function checkResult() {
@@ -376,8 +389,8 @@ function update(dt) {
     wall.update(dt, config.wall, config.physics.gravity);
     keeper.update(dt);
 
-    // After a fumble, or when he's been beaten by a near-perfect shot, the keeper can't touch the ball.
-    const colliders = () => [...GOAL_COLLIDERS, ...wall.colliders, ...(game.fumbled || game.keeperBeaten ? [] : keeper.colliders)];
+    // After a fumble or punch, or when beaten by a near-perfect shot, the keeper no longer touches the ball.
+    const colliders = () => [...GOAL_COLLIDERS, ...wall.colliders, ...(game.fumbled || game.punched || game.keeperBeaten ? [] : keeper.colliders)];
     let active = colliders();
     const steps = Math.ceil(dt / PHYSICS_DT);
     for (let i = 0; i < steps && !game.held; i++) {
@@ -388,7 +401,7 @@ function update(dt) {
         active = colliders();
       }
     }
-    if (game.held) keeper.catchPoint(ball.pos); // caught: ball stays in his hands
+    if (game.held) keeper.holdPoint(ball.pos); // caught: ball stays in his grip
 
     trail.push(ball.pos);
     if (game.phase === 'flight') checkResult();
@@ -451,3 +464,6 @@ enterAim();
 if (new URLSearchParams(window.location.search).has('admin')) {
   import('./admin.js').then((m) => m.createAdminPanel());
 }
+
+// Dev-only handle for poking at the game from the console or test scripts (stripped from builds).
+if (import.meta.env.DEV) window.__fk = { game, ball, keeper, config, onKeeperContact };
