@@ -32,11 +32,13 @@ export default {
   keeper: {
     reactionDelay: 0.22, // s after the kick before the keeper reads the shot
     diveSpeed: 6.5, // m/s of body travel during a dive
-    reach: 1.7, // max body travel (m) from the ready position; arms add ~1.1 m
-    skillRandomness: 0.35, // 0 = perfect read, 1 = often guesses wrong
+    reach: 2.3, // max body travel (m) from the ready position; arms add ~1 m
+    skillRandomness: 0.35, // how beatable on hard shots: 0 = only the reach limit beats him, 1 = often misreads
+    catchSpeed: 18, // shots slower than this (m/s) at contact are caught, faster ones are parried
+    fumbleChance: 0.05, // chance a save squirms through into the net ("Fumble!")
   },
   wall: {
-    count: 4, // defenders (3–5)
+    count: 4, // defenders (2–5) at the default spot; "New spot" picks its own
     distance: 9.15, // m from the ball
     height: 1.85, // defender height (m)
     jumpHeight: 0.35, // m

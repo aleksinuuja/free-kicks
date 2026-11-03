@@ -37,10 +37,12 @@ const PANEL = {
     diveSpeed: [1, 15, 0.1, 'dive speed (m/s)'],
     reach: [0, 3.5, 0.05, 'reach (m)'],
     skillRandomness: [0, 1, 0.01, 'skill randomness'],
+    catchSpeed: [0, 35, 0.5, 'catch below (m/s)'],
+    fumbleChance: [0, 0.5, 0.01, 'fumble chance'],
   },
   wall: {
     title: 'Wall',
-    count: [3, 5, 1, 'defenders'],
+    count: [2, 5, 1, 'defenders'],
     distance: [5, 15, 0.05, 'distance (m)'],
     height: [1.5, 2.2, 0.01, 'height (m)'],
     jumpHeight: [0, 1, 0.01, 'jump height (m)'],

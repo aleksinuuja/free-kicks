@@ -292,7 +292,7 @@ export function createAimArrow() {
     /** yaw: 0 = towards -z, positive = towards +x. power: 0…1 */
     show(origin, yaw, power) {
       const start = 0.3;
-      const len = 0.8 + power * 6;
+      const len = 0.5 + power * 3.6;
       group.position.set(origin.x, 0.03, origin.z);
       group.rotation.y = -yaw;
       shaft.position.z = -start;

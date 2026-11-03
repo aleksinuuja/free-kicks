@@ -12,6 +12,7 @@ const el = {
   power: $('power-label'),
   result: $('result'),
   resultText: $('result-text'),
+  callout: $('callout'),
 };
 
 export const newSpotButton = el.newSpot;
@@ -48,4 +49,18 @@ export function showResult(kind) {
 
 export function hideResult() {
   el.result.hidden = true;
+}
+
+/** Short label that follows a point on screen (e.g. "Fumble!" next to the keeper). */
+export function showCallout(text) {
+  el.callout.textContent = text;
+  el.callout.hidden = false;
+}
+
+export function moveCallout(x, y) {
+  el.callout.style.transform = `translate(${x + 18}px, ${y}px) translate(0, -50%)`;
+}
+
+export function hideCallout() {
+  el.callout.hidden = true;
 }

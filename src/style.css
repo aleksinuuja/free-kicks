@@ -132,6 +132,20 @@ body {
   pointer-events: none;
 }
 
+#callout {
+  position: fixed;
+  left: 0;
+  top: 0;
+  font-size: 22px;
+  font-weight: 900;
+  font-style: italic;
+  color: #ffe14d;
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 /* ── Result banner ───────────────────────────────────────────────────────── */
 
 #result {

@@ -234,7 +234,7 @@ export function stepBall(b, dt, cfg, colliders) {
 const _sim = new BallBody();
 
 /** Predicts where the ball (ignoring players) will cross the plane z = planeZ.
- *  Returns { x, y, t } or null if it won't get there within 3 s. */
+ *  Returns { x, y, t, speed } or null if it won't get there within 3 s. */
 export function predictCrossing(b, planeZ, cfg) {
   if (b.vel.z >= 0) return null;
   const sim = _sim.copyFrom(b);
@@ -242,7 +242,7 @@ export function predictCrossing(b, planeZ, cfg) {
   for (let t = 0; t < 3; t += dt) {
     integrate(sim, dt, cfg);
     collideGround(sim, dt, cfg);
-    if (sim.pos.z <= planeZ) return { x: sim.pos.x, y: sim.pos.y, t };
+    if (sim.pos.z <= planeZ) return { x: sim.pos.x, y: sim.pos.y, t, speed: sim.vel.length() };
     if (sim.vel.z >= 0) return null;
   }
   return null;

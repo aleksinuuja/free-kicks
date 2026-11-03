@@ -237,8 +237,8 @@ export class Wall {
   }
 
   /** (Re)builds the meshes if count or height changed. */
-  ensureBuilt(cfg) {
-    const count = Math.round(cfg.count);
+  ensureBuilt(cfg, wallSize = cfg.count) {
+    const count = Math.round(wallSize);
     const key = `${count}/${cfg.height}`;
     if (key === this.builtFor) return;
     this.builtFor = key;
@@ -271,8 +271,8 @@ export class Wall {
   }
 
   /** Lines the wall up `cfg.distance` from the ball, on the line towards `aimPoint`. */
-  layout(ballPos, aimPoint, cfg) {
-    this.ensureBuilt(cfg);
+  layout(ballPos, aimPoint, cfg, wallSize = cfg.count) {
+    this.ensureBuilt(cfg, wallSize);
     const dir = new THREE.Vector3(aimPoint.x - ballPos.x, 0, aimPoint.z - ballPos.z).normalize();
     const side = new THREE.Vector3(-dir.z, 0, dir.x);
     const centre = ballPos.clone().setY(0).addScaledVector(dir, cfg.distance);
@@ -331,7 +331,7 @@ export class Wall {
 const HIP = 0.8;
 const HAND_REACH = 1.05; // hip → hands with arms overhead
 const READY_SPREAD = 0.55;
-const DIVE_SPREAD = 2.85;
+const DIVE_SPREAD = 3.25; // a little past straight up: hands come together overhead
 const GROUND_HIP = 0.3; // hip height when lying on the ground
 
 const lerp = THREE.MathUtils.lerp;
@@ -361,7 +361,8 @@ export class Keeper {
     this.torso = makeCapsule('keeper', 0.22, 0.3, 0.6);
     this.armL = makeCapsule('keeper', 0.12, 0.3, 0.6);
     this.armR = makeCapsule('keeper', 0.12, 0.3, 0.6);
-    this.colliders = [this.torso, this.armL, this.armR];
+    this.gloves = makeCapsule('keeper', 0.11, 0.3, 0.6); // bridges the two hands
+    this.colliders = [this.torso, this.armL, this.armR, this.gloves];
   }
 
   reset(x, z) {
@@ -374,12 +375,22 @@ export class Keeper {
     this.apply();
   }
 
+  /** Furthest point (from the ready position) his hands can get to. */
+  coverage(cfg) {
+    return cfg.reach + HAND_REACH;
+  }
+
+  /** Where a caught ball sits: between the gloves, just in front of him. */
+  catchPoint(out) {
+    return out.addVectors(this.armL.b, this.armR.b).multiplyScalar(0.5).setZ(this.z + 0.18);
+  }
+
   /** Dive so the hands reach `target` ({x, y} in the keeper's plane), as far
    *  as `cfg.reach` allows, timed to finish just before `arriveIn` seconds. */
   dive(target, cfg, arriveIn = 0) {
     const dx = target.x - this.home.x;
     const dy = target.y - this.home.y;
-    const lim = Math.PI / 2 + 0.1;
+    const lim = Math.PI / 2; // never point the body below horizontal (hands would go underground)
     const ang = clamp(Math.atan2(dx, dy), -lim, lim);
     const ax = Math.sin(ang);
     const ay = Math.cos(ang);
@@ -465,5 +476,7 @@ export class Keeper {
         arm.b,
       );
     }
+    this.gloves.a.copy(this.armL.b);
+    this.gloves.b.copy(this.armR.b);
   }
 }

@@ -36,6 +36,7 @@ const keeper = new Keeper(scene);
 const game = {
   phase: 'aim', // 'aim' | 'strike' | 'flight' | 'result'
   spot: { ...DEFAULT_SPOT },
+  wallCount: null, // set by "New spot"; null = config.wall.count
   aim: null, // { yaw, power } relative to the line ball → goal centre
   keeperReacted: false,
   resultTime: 0,
@@ -47,6 +48,7 @@ const game = {
 const UP = new THREE.Vector3(0, 1, 0);
 const ORBIT_MAX_YAW = degToRad(80);
 const orbit = { yaw: 0, lift: 0, active: false };
+const callout = { active: false, time: 0 }; // "Fumble!" label next to the keeper
 
 /** Shot direction where 0 = straight at the goal centre (-z), + = towards +x. */
 const yawToGoal = (spot) => Math.atan2(-spot.x, spot.z);
@@ -56,8 +58,11 @@ const yawToGoal = (spot) => Math.atan2(-spot.x, spot.z);
 function layoutWall() {
   // The wall covers the near-post side; the keeper shades the far side.
   const side = game.spot.x >= 0 ? 1 : -1;
-  wall.layout(ball.pos, new THREE.Vector3(side * 2.4, 0, 0), config.wall);
+  wall.layout(ball.pos, new THREE.Vector3(side * 2.4, 0, 0), config.wall, wallCount());
 }
+
+/** Random spots pick their own wall size; otherwise the configured one is used. */
+const wallCount = () => game.wallCount ?? config.wall.count;
 
 function layoutShot() {
   const { x, z } = game.spot;
@@ -67,7 +72,7 @@ function layoutShot() {
   keeper.reset((x >= 0 ? -1 : 1) * 0.6, KEEPER_Z);
   updateCamera();
   aimSun(sun, new THREE.Vector3(x / 2, 0, z / 2));
-  hud.setInfo(`Free kick · ${Math.round(Math.hypot(x, z))} m`);
+  hud.setInfo(`Free kick · ${Math.round(Math.hypot(x, z))} m · ${wallCount()} in the wall`);
 }
 
 function updateCamera() {
@@ -91,8 +96,8 @@ function updateCamera() {
 
 function randomSpot() {
   for (;;) {
-    const dist = 18 + Math.random() * 14; // 18–32 m from goal centre
-    const ang = degToRad((Math.random() * 2 - 1) * 32);
+    const dist = rand(17, 38); // m from goal centre
+    const ang = degToRad(rand(-32, 32));
     const spot = { x: Math.sin(ang) * dist, z: Math.cos(ang) * dist };
     const insideBox = spot.z < 17.5 && Math.abs(spot.x) < 21;
     if (!insideBox) return spot;
@@ -110,6 +115,8 @@ function enterAim() {
 /** Retry: always the same spot until "New spot" is pressed. */
 function resetShot() {
   hud.hideResult();
+  hud.hideCallout();
+  callout.active = false;
   layoutShot();
   enterAim();
 }
@@ -149,6 +156,9 @@ function kick(strike) {
 
   wall.kick(config.wall);
   game.keeperReacted = false;
+  game.keeperTouched = false;
+  game.held = false;
+  game.fumbled = false;
   game.phase = 'flight';
   game.stats.shots++;
   hud.setStats(game.stats);
@@ -161,11 +171,49 @@ function keeperReact() {
   const pred = predictCrossing(ball, KEEPER_Z, config);
   if (!pred) return;
   const k = config.keeper;
+  const home = keeper.home;
   const target = {
-    x: clamp(pred.x + gaussian() * k.skillRandomness * 0.9, -GOAL.halfWidth - 0.6, GOAL.halfWidth + 0.6),
-    y: clamp(pred.y + gaussian() * k.skillRandomness * 0.4, 0.15, GOAL.height + 0.3),
+    x: clamp(pred.x, -GOAL.halfWidth - 0.6, GOAL.halfWidth + 0.6),
+    y: clamp(pred.y, 0.15, GOAL.height + 0.3),
   };
-  keeper.dive(target, k, pred.t);
+
+  // How hard is this one? 0 = slow and straight at him, 1 = fast into a corner.
+  const edge = clamp(Math.hypot(target.x - home.x, target.y - home.y) / keeper.coverage(k), 0, 1);
+  const pace = clamp((pred.speed - 12) / 16, 0, 1);
+  const difficulty = edge * (0.4 + 0.6 * pace);
+  // Easy shots (difficulty < 0.15) are always read correctly; beyond that the odds grow steeply.
+  const beatChance = clamp((difficulty - 0.15) / 0.85, 0, 1) ** 1.5 * clamp(0.3 + k.skillRandomness, 0, 1);
+  const beaten = Math.random() < beatChance;
+
+  if (!beaten) {
+    keeper.dive(target, k, pred.t); // good read: right place, right time (reach still limits)
+    return;
+  }
+  // Misread: dives short and late, and now and then the wrong way.
+  const f = Math.random() < 0.3 ? -0.6 : rand(0.35, 0.7);
+  const misread = { x: home.x + (target.x - home.x) * f, y: home.y + (target.y - home.y) * Math.abs(f) };
+  keeper.dive(misread, k, pred.t + rand(0.1, 0.25));
+}
+
+/** First touch on the keeper: fumble, catch, or (physics already did it) parry. */
+function onKeeperContact(speedBefore) {
+  game.keeperTouched = true;
+  const k = config.keeper;
+  if (Math.random() < k.fumbleChance) {
+    // Right place, right time... and it squirms through into the net.
+    game.fumbled = true;
+    ball.pos.y = Math.min(ball.pos.y, GOAL.height - 0.3);
+    ball.vel.set((clamp(ball.pos.x, -3.2, 3.2) - ball.pos.x) * 3, 1, -3.5);
+    ball.spin.set(0, 0, 0);
+    callout.active = true;
+    callout.time = 0;
+    hud.showCallout('Fumble!');
+  } else if (speedBefore < k.catchSpeed) {
+    game.held = true;
+    ball.vel.set(0, 0, 0);
+    ball.spin.set(0, 0, 0);
+    if (game.phase === 'flight') finish('SAVED');
+  }
 }
 
 function checkResult() {
@@ -253,6 +301,7 @@ hud.newSpotButton.addEventListener('click', () => {
   const idle = game.phase === 'aim' && aimInput.pointerId === null;
   if (!idle && game.phase !== 'result') return;
   game.spot = randomSpot();
+  game.wallCount = 2 + Math.floor(Math.random() * 4); // 2–5 defenders
   trail.reset();
   resetShot();
 });
@@ -273,9 +322,10 @@ for (const type of ['gesturestart', 'gesturechange', 'dblclick']) {
 
 onConfigChange((path) => {
   if (!path || path.startsWith('camera')) updateCamera();
+  if (path === 'wall.count') game.wallCount = null; // the slider wins over a random spot's wall
   if (!path || /^wall\.(count|height|distance)$/.test(path)) {
     if (game.phase === 'aim' || game.phase === 'strike') layoutWall();
-    else wall.ensureBuilt(config.wall); // applied fully on next reset
+    else wall.ensureBuilt(config.wall, wallCount()); // applied fully on next reset
   }
 });
 
@@ -309,9 +359,19 @@ function update(dt) {
     wall.update(dt, config.wall, config.physics.gravity);
     keeper.update(dt);
 
-    const colliders = [...GOAL_COLLIDERS, ...wall.colliders, ...keeper.colliders];
+    // After a fumble the keeper no longer touches the ball.
+    const colliders = () => [...GOAL_COLLIDERS, ...wall.colliders, ...(game.fumbled ? [] : keeper.colliders)];
+    let active = colliders();
     const steps = Math.ceil(dt / PHYSICS_DT);
-    for (let i = 0; i < steps; i++) stepBall(ball, dt / steps, config, colliders);
+    for (let i = 0; i < steps && !game.held; i++) {
+      const speedBefore = ball.vel.length();
+      stepBall(ball, dt / steps, config, active);
+      if (ball.touched.keeper && !game.keeperTouched) {
+        onKeeperContact(speedBefore);
+        active = colliders();
+      }
+    }
+    if (game.held) keeper.catchPoint(ball.pos); // caught: ball stays in his hands
 
     trail.push(ball.pos);
     if (game.phase === 'flight') checkResult();
@@ -330,6 +390,17 @@ function update(dt) {
     orbit.lift = Math.abs(orbit.lift) < 1e-3 ? 0 : orbit.lift * k;
   }
   updateCamera();
+
+  if (callout.active) {
+    callout.time += dt;
+    if (callout.time > 1.6) {
+      callout.active = false;
+      hud.hideCallout();
+    } else {
+      _proj.copy(keeper.torso.b).project(camera);
+      hud.moveCallout(((_proj.x + 1) / 2) * window.innerWidth, ((1 - _proj.y) / 2) * window.innerHeight);
+    }
+  }
 
   syncBallMesh(dt);
   ring.update(ball.pos, performance.now() / 1000, game.phase === 'aim' && aimInput.pointerId === null);
@@ -351,9 +422,8 @@ renderer.setAnimationLoop((now) => {
 
 // ── Start ────────────────────────────────────────────────────────────────────
 
-function gaussian() {
-  // Box–Muller
-  return Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random());
+function rand(a, b) {
+  return a + (b - a) * Math.random();
 }
 
 hud.setStats(game.stats);
