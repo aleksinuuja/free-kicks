@@ -37,6 +37,7 @@ const PANEL = {
     diveSpeed: [1, 15, 0.1, 'dive speed (m/s)'],
     reach: [0, 3.5, 0.05, 'reach (m)'],
     skillRandomness: [0, 1, 0.01, 'skill randomness'],
+    perfectZone: [0, 1.5, 0.05, 'perfect zone (m)'],
     catchSpeed: [0, 35, 0.5, 'catch below (m/s)'],
     fumbleChance: [0, 0.5, 0.01, 'fumble chance'],
   },

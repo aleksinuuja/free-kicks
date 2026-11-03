@@ -159,6 +159,8 @@ function kick(strike) {
   game.keeperTouched = false;
   game.held = false;
   game.fumbled = false;
+  game.keeperBeaten = false;
+  game.easyShot = true;
   game.phase = 'flight';
   game.stats.shots++;
   hud.setStats(game.stats);
@@ -177,12 +179,24 @@ function keeperReact() {
     y: clamp(pred.y, 0.15, GOAL.height + 0.3),
   };
 
-  // How hard is this one? 0 = slow and straight at him, 1 = fast into a corner.
-  const edge = clamp(Math.hypot(target.x - home.x, target.y - home.y) / keeper.coverage(k), 0, 1);
+  // Shot quality: how close to a post (high or low doesn't matter) and how fast.
+  const postGap = GOAL.halfWidth - Math.abs(pred.x); // m inside the post; negative = wide
+  const placement = clamp(1 - postGap / GOAL.halfWidth, 0, 1); // 0 = centre, 1 = at the post
   const pace = clamp((pred.speed - 12) / 16, 0, 1);
-  const difficulty = edge * (0.4 + 0.6 * pace);
-  // Easy shots (difficulty < 0.15) are always read correctly; beyond that the odds grow steeply.
-  const beatChance = clamp((difficulty - 0.15) / 0.85, 0, 1) ** 1.5 * clamp(0.3 + k.skillRandomness, 0, 1);
+  const onTarget = postGap > 0 && pred.y < GOAL.height;
+  // Fumbles are only for shots he should have had: slow or central.
+  game.easyShot = pace < 0.35 || placement < 0.4;
+
+  // Near-perfect placement always beats him: he dives short and late and can't touch it.
+  if (onTarget && postGap < k.perfectZone) {
+    game.keeperBeaten = true;
+    keeper.dive({ x: home.x + (target.x - home.x) * 0.7, y: home.y + (target.y - home.y) * 0.7 }, k, pred.t + 0.1);
+    return;
+  }
+
+  // Otherwise easy shots (difficulty < 0.15) are always read; beyond that the odds grow.
+  const difficulty = placement * (0.5 + 0.5 * pace);
+  const beatChance = clamp((difficulty - 0.15) / 0.7, 0, 1) * clamp(0.3 + k.skillRandomness, 0, 1);
   const beaten = Math.random() < beatChance;
 
   if (!beaten) {
@@ -199,7 +213,7 @@ function keeperReact() {
 function onKeeperContact(speedBefore) {
   game.keeperTouched = true;
   const k = config.keeper;
-  if (Math.random() < k.fumbleChance) {
+  if (game.easyShot && Math.random() < k.fumbleChance) {
     // Right place, right time... and it squirms through into the net.
     game.fumbled = true;
     ball.pos.y = Math.min(ball.pos.y, GOAL.height - 0.3);
@@ -359,8 +373,8 @@ function update(dt) {
     wall.update(dt, config.wall, config.physics.gravity);
     keeper.update(dt);
 
-    // After a fumble the keeper no longer touches the ball.
-    const colliders = () => [...GOAL_COLLIDERS, ...wall.colliders, ...(game.fumbled ? [] : keeper.colliders)];
+    // After a fumble, or when he's been beaten by a near-perfect shot, the keeper can't touch the ball.
+    const colliders = () => [...GOAL_COLLIDERS, ...wall.colliders, ...(game.fumbled || game.keeperBeaten ? [] : keeper.colliders)];
     let active = colliders();
     const steps = Math.ceil(dt / PHYSICS_DT);
     for (let i = 0; i < steps && !game.held; i++) {
