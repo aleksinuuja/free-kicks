@@ -1,5 +1,5 @@
 // Two-step shot input:
-//   1. AimInput      – drag from the ball: direction = aim, length = power
+//   1. AimInput      – pull back from the ball (slingshot): opposite direction = aim, length = power
 //   2. StrikePicker  – tap an enlarged ball: where you hit it sets lift/curve
 
 const GRAB_RADIUS = 90; // px around the ball where a drag may start
@@ -46,7 +46,8 @@ export class AimInput {
     const dy = e.clientY - this.startY;
     const len = Math.hypot(dx, dy);
     const power = Math.min(1, len / this.settings.maxDragLength);
-    let yaw = Math.atan2(dx, -dy) * this.settings.dragSensitivity;
+    // Slingshot: pull back from the ball, the shot goes the opposite way.
+    let yaw = Math.atan2(-dx, dy) * this.settings.dragSensitivity;
     yaw = Math.max(-MAX_YAW, Math.min(MAX_YAW, yaw));
     this.aim = { yaw, power, x: e.clientX, y: e.clientY };
     this.onChange(this.aim);
@@ -79,6 +80,7 @@ export class StrikePicker {
     this.settings = settings;
     this.ballEl = root.querySelector('.strike-ball');
     this.marker = root.querySelector('.strike-marker');
+    this.pattern = root.querySelector('.strike-pattern');
     this.resolve = null;
     this.locked = false;
     root.addEventListener('pointerdown', this.#down);
@@ -87,6 +89,10 @@ export class StrikePicker {
   pick() {
     const size = Math.min(this.settings.tapOverlaySize, window.innerWidth * 0.82, window.innerHeight * 0.5);
     this.ballEl.style.setProperty('--size', `${size}px`);
+    // Randomly turn/shift the panel pattern so it never marks the centre:
+    // the strike point has to be judged by eye.
+    const rnd = (n) => (Math.random() * 2 - 1) * n;
+    this.pattern.setAttribute('transform', `translate(${rnd(45)} ${rnd(45)}) rotate(${rnd(180)})`);
     this.marker.hidden = true;
     this.locked = false;
     this.root.hidden = false;

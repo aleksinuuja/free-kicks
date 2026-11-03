@@ -1,4 +1,4 @@
-// DOM overlay: stats, hints, power label, result banner, spot-mode button.
+// DOM overlay: stats, hints, power label, result banner, new-spot button.
 
 const $ = (id) => document.getElementById(id);
 
@@ -6,7 +6,7 @@ const el = {
   shots: $('stat-shots'),
   goals: $('stat-goals'),
   streak: $('stat-streak'),
-  mode: $('mode-btn'),
+  newSpot: $('new-spot-btn'),
   info: $('info'),
   hint: $('hint'),
   power: $('power-label'),
@@ -14,17 +14,12 @@ const el = {
   resultText: $('result-text'),
 };
 
-export const modeButton = el.mode;
+export const newSpotButton = el.newSpot;
 
 export function setStats({ shots, goals, streak }) {
   el.shots.textContent = shots;
   el.goals.textContent = goals;
   el.streak.textContent = streak;
-}
-
-export function setMode(random) {
-  el.mode.textContent = random ? 'Spot: random' : 'Spot: same';
-  el.mode.setAttribute('aria-pressed', String(random));
 }
 
 export function setInfo(text) {

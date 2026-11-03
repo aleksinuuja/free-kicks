@@ -20,9 +20,21 @@ function mergeKnown(dst, src, ref = DEFAULTS) {
   }
 }
 
+/** Only the values that differ from the defaults, so changed defaults still reach players. */
+function overrides(cur, ref = DEFAULTS) {
+  const out = {};
+  for (const key of Object.keys(ref)) {
+    if (ref[key] && typeof ref[key] === 'object') {
+      const sub = overrides(cur[key], ref[key]);
+      if (Object.keys(sub).length) out[key] = sub;
+    } else if (cur[key] !== ref[key]) out[key] = cur[key];
+  }
+  return out;
+}
+
 export function saveConfig() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides(config)));
   } catch {
     /* storage unavailable (private mode etc.) – values still apply for this session */
   }

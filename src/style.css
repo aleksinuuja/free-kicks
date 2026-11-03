@@ -57,7 +57,7 @@ body {
 }
 
 .stat,
-#mode-btn {
+#new-spot-btn {
   background: var(--chip);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
@@ -81,7 +81,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-#mode-btn {
+#new-spot-btn {
   pointer-events: auto;
   touch-action: manipulation;
   border: 1px solid rgba(255, 255, 255, 0.25);
@@ -93,10 +93,6 @@ body {
   cursor: pointer;
 }
 
-#mode-btn[aria-pressed='true'] {
-  border-color: var(--accent);
-  color: var(--accent);
-}
 
 #info,
 #hint {
@@ -236,36 +232,6 @@ body {
   animation: pop 0.2s ease-out;
 }
 
-.strike-label {
-  position: absolute;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.75;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.strike-label.top {
-  bottom: 100%;
-  left: 50%;
-  transform: translate(-50%, -4px);
-}
-.strike-label.bottom {
-  top: 100%;
-  left: 50%;
-  transform: translate(-50%, 4px);
-}
-.strike-label.left {
-  right: 100%;
-  top: 50%;
-  transform: translate(-6px, -50%);
-}
-.strike-label.right {
-  left: 100%;
-  top: 50%;
-  transform: translate(6px, -50%);
-}
 
 /* ── Admin panel placement ───────────────────────────────────────────────── */
 

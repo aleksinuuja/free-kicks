@@ -14,7 +14,7 @@ const RESULT_HOLD = 1.5; // s before auto-reset
 const PHYSICS_DT = 1 / 240;
 const BALL_SCREEN_Y = 0.62; // where the ball sits below screen centre (0 = centre, 1 = bottom edge)
 const DEFAULT_SPOT = { x: -4, z: 22 };
-const HINT_AIM = 'Drag from the ball to aim & set power';
+const HINT_AIM = 'Pull back from the ball to aim & set power';
 
 const { degToRad, lerp, clamp } = THREE.MathUtils;
 
@@ -36,7 +36,6 @@ const keeper = new Keeper(scene);
 const game = {
   phase: 'aim', // 'aim' | 'strike' | 'flight' | 'result'
   spot: { ...DEFAULT_SPOT },
-  randomSpots: false,
   aim: null, // { yaw, power } relative to the line ball → goal centre
   keeperReacted: false,
   resultTime: 0,
@@ -100,11 +99,8 @@ function enterAim() {
   hud.setHint(HINT_AIM);
 }
 
+/** Retry: always the same spot until "New spot" is pressed. */
 function resetShot() {
-  if (game.randomSpots) {
-    game.spot = randomSpot();
-    trail.reset();
-  }
   hud.hideResult();
   layoutShot();
   enterAim();
@@ -127,7 +123,11 @@ function kick(strike) {
   const p = game.aim.power;
   const curved = s.powerCurve === 'eased' ? p * p * (3 - 2 * p) : p;
   const speed = lerp(s.minPower, s.maxPower, curved);
-  const lift = degToRad(lerp(s.minLift, s.maxLift, (1 - strike.v) / 2)); // tap low → high
+  // Strike point is shaped by a power curve: small effect near the centre, extreme at the edge.
+  const shape = (x, k) => Math.sign(x) * Math.abs(x) ** k;
+  const low = shape(-strike.v, s.liftCurve); // -1 = top edge, +1 = bottom edge
+  const lift = degToRad(low >= 0 ? lerp(s.centerLift, s.maxLift, low) : lerp(s.centerLift, s.minLift, -low));
+  const side = shape(strike.u, s.spinCurve);
   const yaw = yawToGoal(game.spot) + game.aim.yaw;
 
   const fwd = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
@@ -136,7 +136,7 @@ function kick(strike) {
 
   // Sidespin about the vertical axis: tap left (u < 0) → ω.y < 0 → bends right.
   // Top/backspin about the `right` axis: tap high → topspin (dips).
-  ball.spin.set(0, strike.u * s.maxSpin, 0).addScaledVector(right, -strike.v * s.maxSpin * s.topspin);
+  ball.spin.set(0, side * s.maxSpin, 0).addScaledVector(right, -strike.v * s.maxSpin * s.topspin);
 
   wall.kick(config.wall);
   game.keeperReacted = false;
@@ -223,15 +223,14 @@ window.addEventListener('pointerdown', () => {
   if (game.phase === 'result' && game.resultTime > 0.2) resetShot();
 });
 
-hud.modeButton.addEventListener('pointerdown', (e) => e.stopPropagation());
-hud.modeButton.addEventListener('click', () => {
-  game.randomSpots = !game.randomSpots;
-  hud.setMode(game.randomSpots);
-  if (game.phase === 'aim' && aimInput.pointerId === null && game.randomSpots) {
-    game.spot = randomSpot();
-    trail.reset();
-    layoutShot();
-  }
+// "New spot": random free-kick position. Ignored while a shot is in progress.
+hud.newSpotButton.addEventListener('pointerdown', (e) => e.stopPropagation());
+hud.newSpotButton.addEventListener('click', () => {
+  const idle = game.phase === 'aim' && aimInput.pointerId === null;
+  if (!idle && game.phase !== 'result') return;
+  game.spot = randomSpot();
+  trail.reset();
+  resetShot();
 });
 
 // Block page scroll / pinch-zoom / double-tap zoom (lil-gui keeps its own scrolling).
@@ -327,7 +326,6 @@ function gaussian() {
 }
 
 hud.setStats(game.stats);
-hud.setMode(game.randomSpots);
 resize();
 layoutShot();
 enterAim();

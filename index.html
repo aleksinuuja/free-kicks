@@ -21,7 +21,7 @@
         <div class="stat"><b id="stat-goals">0</b>goals</div>
         <div class="stat"><b id="stat-streak">0</b>streak</div>
       </div>
-      <button id="mode-btn" type="button" aria-pressed="false">Spot: same</button>
+      <button id="new-spot-btn" type="button">New spot</button>
     </div>
 
     <div id="info"></div>
@@ -46,25 +46,19 @@
             <clipPath id="ball-clip"><circle r="98" /></clipPath>
           </defs>
           <circle r="98" fill="url(#ball-shade)" />
-          <g clip-path="url(#ball-clip)" fill="#26303a" opacity="0.85">
+          <g clip-path="url(#ball-clip)">
+            <g class="strike-pattern" fill="#26303a" opacity="0.85">
             <polygon points="0,-26 24.7,-8 15.3,21 -15.3,21 -24.7,-8" />
             <polygon points="0,-26 24.7,-8 15.3,21 -15.3,21 -24.7,-8" transform="translate(0,-92) rotate(180)" />
             <polygon points="0,-26 24.7,-8 15.3,21 -15.3,21 -24.7,-8" transform="rotate(72) translate(0,-92) rotate(180)" />
             <polygon points="0,-26 24.7,-8 15.3,21 -15.3,21 -24.7,-8" transform="rotate(144) translate(0,-92) rotate(180)" />
             <polygon points="0,-26 24.7,-8 15.3,21 -15.3,21 -24.7,-8" transform="rotate(216) translate(0,-92) rotate(180)" />
             <polygon points="0,-26 24.7,-8 15.3,21 -15.3,21 -24.7,-8" transform="rotate(288) translate(0,-92) rotate(180)" />
-          </g>
-          <g stroke="#0b6bd6" stroke-width="1.2" stroke-dasharray="4 5" opacity="0.6">
-            <line x1="-98" y1="0" x2="98" y2="0" />
-            <line x1="0" y1="-98" x2="0" y2="98" />
+            </g>
           </g>
           <circle r="98" fill="none" stroke="#ffffff" stroke-width="2" />
         </svg>
         <div class="strike-marker" hidden></div>
-        <span class="strike-label top">driven</span>
-        <span class="strike-label bottom">lifted</span>
-        <span class="strike-label left">bend ⟶</span>
-        <span class="strike-label right">⟵ bend</span>
       </div>
       <p class="strike-sub">Tap outside to re-aim</p>
     </div>

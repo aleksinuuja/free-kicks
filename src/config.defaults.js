@@ -14,9 +14,12 @@ export default {
     maxPower: 30, // ball speed (m/s) at 100 % power
     minPower: 8, // ball speed (m/s) at 0 % power
     powerCurve: 'eased', // 'linear' | 'eased' (eased = finer control near both ends)
-    minLift: 2, // launch angle (°) when striking the top of the ball
-    maxLift: 26, // launch angle (°) when striking the bottom of the ball
+    minLift: 3, // launch angle (°) when striking the top edge of the ball
+    centerLift: 15, // launch angle (°) when striking the centre
+    maxLift: 42, // launch angle (°) when striking the bottom edge of the ball
+    liftCurve: 2.2, // 1 = linear; higher = subtle near the centre, extreme at the edge
     maxSpin: 60, // sidespin (rad/s) when striking the very edge of the ball
+    spinCurve: 1, // same shaping for sidespin (1 = linear)
     topspin: 0.15, // share of maxSpin turned into top/backspin by vertical strike point
     spinDecay: 0.5, // exponential spin decay rate (1/s)
   },
@@ -47,7 +50,7 @@ export default {
   },
   input: {
     dragSensitivity: 0.5, // screen drag angle → shot angle multiplier
-    maxDragLength: 200, // px of drag for 100 % power
+    maxDragLength: 130, // px of pull-back for 100 % power
     tapOverlaySize: 240, // px diameter of the strike-point ball
   },
 };
