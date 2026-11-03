@@ -14,10 +14,9 @@ export default {
     maxPower: 30, // ball speed (m/s) at 100 % power
     minPower: 8, // ball speed (m/s) at 0 % power
     powerCurve: 'eased', // 'linear' | 'eased' (eased = finer control near both ends)
-    minLift: 3, // launch angle (°) when striking the top edge of the ball
-    centerLift: 15, // launch angle (°) when striking the centre
-    maxLift: 42, // launch angle (°) when striking the bottom edge of the ball
-    liftCurve: 2.2, // 1 = linear; higher = subtle near the centre, extreme at the edge
+    // Lift follows contact geometry: centre or above = flat, below = asin(depth) × liftScale
+    // (≈ 22° halfway down, 67° at the bottom edge with 0.75).
+    liftScale: 0.75, // 1 = pure point-contact geometry; lower = softer, as a foot spreads the contact
     maxSpin: 60, // sidespin (rad/s) when striking the very edge of the ball
     spinCurve: 1, // same shaping for sidespin (1 = linear)
     topspin: 0.15, // share of maxSpin turned into top/backspin by vertical strike point

@@ -123,11 +123,12 @@ function kick(strike) {
   const p = game.aim.power;
   const curved = s.powerCurve === 'eased' ? p * p * (3 - 2 * p) : p;
   const speed = lerp(s.minPower, s.maxPower, curved);
-  // Strike point is shaped by a power curve: small effect near the centre, extreme at the edge.
-  const shape = (x, k) => Math.sign(x) * Math.abs(x) ** k;
-  const low = shape(-strike.v, s.liftCurve); // -1 = top edge, +1 = bottom edge
-  const lift = degToRad(low >= 0 ? lerp(s.centerLift, s.maxLift, low) : lerp(s.centerLift, s.minLift, -low));
-  const side = shape(strike.u, s.spinCurve);
+  // Lift from contact geometry: the kick pushes through the contact point towards the
+  // ball's centre, so striking a depth d below centre launches at asin(d / R).
+  // Centre or above = flat (above adds topspin instead, see below).
+  const depth = clamp(-strike.v, 0, 1);
+  const lift = Math.asin(depth) * s.liftScale;
+  const side = Math.sign(strike.u) * Math.abs(strike.u) ** s.spinCurve;
   const yaw = yawToGoal(game.spot) + game.aim.yaw;
 
   const fwd = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
