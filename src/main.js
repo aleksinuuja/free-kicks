@@ -12,6 +12,7 @@ import * as hud from './hud.js';
 const KEEPER_Z = 0.35; // keeper stands just in front of the goal line
 const RESULT_HOLD = 1.5; // s before auto-reset
 const PHYSICS_DT = 1 / 240;
+const PERFECT_MISS = 0.35; // m the gloves finish short of a perfect shot
 const BALL_SCREEN_Y = 0.62; // where the ball sits below screen centre (0 = centre, 1 = bottom edge)
 const DEFAULT_SPOT = { x: -4, z: 22 };
 const HINT_AIM = 'Pull back from the ball to aim & set power';
@@ -191,10 +192,16 @@ function keeperReact() {
   game.easyShot = pace < 0.35 || placement < 0.4;
   game.shotEase = (1 - placement) * (1 - pace);
 
-  // Near-perfect placement always beats him: he dives short and late and can't touch it.
+  // Near-perfect placement always beats him. Make it dramatic: a full-stretch leap,
+  // further than he normally reaches, with the gloves finishing just short of the ball.
+  // (His colliders are off for this shot, so he can't touch it.)
   if (onTarget && postGap < k.perfectZone) {
     game.keeperBeaten = true;
-    keeper.dive({ x: home.x + (target.x - home.x) * 0.7, y: home.y + (target.y - home.y) * 0.7 }, k, pred.t + 0.1);
+    const dx = target.x - home.x;
+    const dy = target.y - home.y;
+    const short = PERFECT_MISS / Math.max(Math.hypot(dx, dy), PERFECT_MISS);
+    const nearMiss = { x: target.x - dx * short, y: target.y - dy * short };
+    keeper.dive(nearMiss, k, pred.t, { reachScale: 1.35, hop: 0.3 });
     return;
   }
 

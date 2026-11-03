@@ -414,8 +414,10 @@ export class Keeper {
   }
 
   /** Dive so the hands reach `target` ({x, y} in the keeper's plane), as far
-   *  as `cfg.reach` allows, timed to finish just before `arriveIn` seconds. */
-  dive(target, cfg, arriveIn = 0) {
+   *  as `cfg.reach` allows, timed to finish just before `arriveIn` seconds.
+   *  `reachScale` and `hop` make for a more spectacular leap. */
+  dive(target, cfg, arriveIn = 0, { reachScale = 1, hop = 0.12 } = {}) {
+    const reach = cfg.reach * reachScale;
     const dx = target.x - this.home.x;
     const dy = target.y - this.home.y;
     const lim = Math.PI / 2; // never point the body below horizontal (hands would go underground)
@@ -428,11 +430,12 @@ export class Keeper {
     // ...limited by reach.
     const off = this.to.clone().sub(this.home);
     const dist = off.length();
-    if (dist > cfg.reach) this.to.copy(this.home).addScaledVector(off, cfg.reach / dist);
+    if (dist > reach) this.to.copy(this.home).addScaledVector(off, reach / dist);
 
     this.diveAngle = ang;
     this.from.copy(this.c);
-    this.duration = Math.max(0.22, Math.min(dist, cfg.reach) / cfg.diveSpeed);
+    this.duration = Math.max(0.22, Math.min(dist, reach) / cfg.diveSpeed);
+    this.hop = hop;
     this.phase = 'waiting';
     this.t = -Math.max(0, arriveIn - this.duration - 0.08);
   }
@@ -454,7 +457,7 @@ export class Keeper {
         const p = Math.min(1, this.t / this.duration);
         const e = 1 - (1 - p) ** 3;
         this.c.lerpVectors(this.from, this.to, e);
-        this.c.y += Math.sin(Math.PI * p) * 0.12;
+        this.c.y += Math.sin(Math.PI * p) * this.hop;
         this.angle = this.diveAngle * e;
         this.spread = lerp(READY_SPREAD, DIVE_SPREAD, Math.min(1, p * 2));
         if (p >= 1) {
